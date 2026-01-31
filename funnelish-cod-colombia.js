@@ -1,4 +1,4 @@
-(function(){
+(function(){ 
     
     var ciudadesColombia = {
         "Leticia": "Amazonas", "Puerto Nariño": "Amazonas",
@@ -56,13 +56,61 @@
     function generarEmail() {
         return 'cliente' + Math.random().toString().slice(2,10) + Date.now().toString().slice(-4) + '@codcolombia.co';
     }
-    
-    function formatearTelefono(tel) {
-        var nums = tel.replace(/\D/g, '');
-        if (nums.startsWith('57') && nums.length > 10) nums = nums.substring(2);
-        if (nums.length > 10) nums = nums.slice(-10);
-        return '+57' + nums;
+
+    // =========================
+    // TELÉFONO (CO) - INTUITIVO
+    // =========================
+    function extraerMovilCO(valor) {
+        var nums = (valor || '').replace(/\D/g, '');
+        if (nums.startsWith('57')) nums = nums.slice(2);
+        if (!/^3\d{9}$/.test(nums)) return null;  // 10 dígitos y empieza por 3
+        return nums;
     }
+
+    function construirUI57(input) {
+        if (input.dataset.ui57 === '1') return;
+        input.dataset.ui57 = '1';
+
+        var wrap = document.createElement('div');
+        wrap.style.cssText =
+            'display:flex;align-items:stretch;width:100%;border:1px solid #cfd6dd;border-radius:10px;overflow:hidden;background:#fff';
+
+        var pref = document.createElement('div');
+        pref.textContent = '+57';
+        pref.style.cssText =
+            'display:flex;align-items:center;justify-content:center;padding:0 12px;font-weight:700;background:#f2f4f7;border-right:1px solid #cfd6dd;min-width:56px;user-select:none';
+
+        var parent = input.parentNode;
+        parent.insertBefore(wrap, input);
+        wrap.appendChild(pref);
+        wrap.appendChild(input);
+
+        input.style.border = '0';
+        input.style.outline = '0';
+        input.style.boxShadow = 'none';
+        input.style.width = '100%';
+        input.style.padding = '12px';
+        input.style.margin = '0';
+    }
+
+    function marcarErrorTelefono(input) {
+        var wrap = input.parentElement;
+        if (wrap && wrap.style && wrap.style.display === 'flex') {
+            wrap.style.border = '2px solid #e74c3c';
+        } else {
+            input.style.border = '2px solid #e74c3c';
+        }
+    }
+
+    function limpiarErrorTelefono(input) {
+        var wrap = input.parentElement;
+        if (wrap && wrap.style && wrap.style.display === 'flex') {
+            wrap.style.border = '1px solid #cfd6dd';
+        } else {
+            input.style.border = '';
+        }
+    }
+    // =========================
     
     function ocultarCampo(nombre) {
         var el = document.querySelector('[name="' + nombre + '"]');
@@ -175,10 +223,31 @@
             crearAutocompletado(ciudad);
         }
         
+        // TELÉFONO - UX simple: solo 10 dígitos, +57 visual fijo
         var tel = document.querySelector('input[name="phone"]');
         if (tel) {
+            tel.setAttribute('inputmode', 'numeric');
+            tel.setAttribute('autocomplete', 'tel');
+            tel.setAttribute('maxlength', '10');
+            tel.placeholder = '3001234567';
+
+            construirUI57(tel);
+
+            tel.addEventListener('input', function() {
+                var v = tel.value.replace(/\D/g, '');
+                if (v.startsWith('57')) v = v.slice(2);
+                if (v.length > 10) v = v.slice(0, 10);
+                tel.value = v;
+
+                if (!v) { limpiarErrorTelefono(tel); return; }
+                if (v.length < 10) { limpiarErrorTelefono(tel); return; }
+                if (!/^3\d{9}$/.test(v)) { marcarErrorTelefono(tel); return; }
+                limpiarErrorTelefono(tel);
+            });
+
             tel.addEventListener('blur', function() {
-                if (this.value.trim()) this.value = formatearTelefono(this.value);
+                if (!tel.value) return;
+                if (tel.value.length === 10 && !/^3\d{9}$/.test(tel.value)) marcarErrorTelefono(tel);
             });
         }
     }
@@ -189,12 +258,25 @@
         setTimeout(init, 500);
     }
     
-    document.addEventListener('submit', function() {
+    document.addEventListener('submit', function(event) {
         var tel = document.querySelector('input[name="phone"]');
         var email = document.querySelector('input[name="email"]');
         var ciudad = document.querySelector('input[name="shipping_city"]');
         
-        if (tel && tel.value) tel.value = formatearTelefono(tel.value);
+        // BLOQUEA si el teléfono está incompleto/incorrecto y normaliza a +57XXXXXXXXXX
+        if (tel) {
+            var movil = extraerMovilCO(tel.value);
+            if (!movil) {
+                event.preventDefault();
+                event.stopPropagation();
+                marcarErrorTelefono(tel);
+                alert('⚠️ Ingresa un número móvil válido de Colombia (10 dígitos). Ej: 3001234567');
+                tel.focus();
+                return false;
+            }
+            tel.value = '+57' + movil;
+        }
+
         if (email && !email.value) email.value = generarEmail();
         if (ciudad && ciudad.value) seleccionarDepartamento(ciudad.value.trim());
     }, true);
