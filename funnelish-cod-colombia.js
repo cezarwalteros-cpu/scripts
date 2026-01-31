@@ -157,122 +157,225 @@
   }
 
   // =========================
-  // TELÉFONO CO (DEFINITIVO)
-  // Regla: SI ES INVÁLIDO → INPUT QUEDA VACÍO
-  // Así Funnelish NO puede avanzar.
+  // VALIDACIÓN TELÉFONO CO
   // =========================
-  function normalizarTelefonoCO(input) {
-    var raw = (input.value || '').toString();
-    var digits = raw.replace(/\D/g, '');
-
-    // quitar 57 si lo escriben
-    if (digits.startsWith('57')) digits = digits.slice(2);
-
-    // si empieza mal o está vacío -> inválido
-    if (!digits || !digits.startsWith('3')) {
-      input.value = '';
-      return false;
+  function esTelefonoValido(valor) {
+    var digits = (valor || '').replace(/\D/g, '');
+    // Quitar 57 si lo escribieron
+    if (digits.startsWith('57') && digits.length > 10) {
+      digits = digits.slice(2);
     }
-
-    // limitar a 10
-    if (digits.length > 10) digits = digits.slice(0, 10);
-
-    // incompleto -> inválido
-    if (digits.length !== 10) {
-      input.value = '';
-      return false;
-    }
-
-    input.value = '+57' + digits;
-    return true;
+    // Debe empezar por 3 y tener exactamente 10 dígitos
+    return digits.length === 10 && digits.startsWith('3');
   }
+
+  function formatearTelefono(valor) {
+    var digits = (valor || '').replace(/\D/g, '');
+    if (digits.startsWith('57') && digits.length > 10) {
+      digits = digits.slice(2);
+    }
+    if (digits.length > 10) digits = digits.slice(0, 10);
+    if (digits.length === 10 && digits.startsWith('3')) {
+      return '+57' + digits;
+    }
+    return null; // inválido
+  }
+
+  // =========================
+  // BLOQUEO TOTAL DE FUNNELISH
+  // =========================
+  var bloqueando = false;
 
   function instalarTelefonoCO() {
     var phone = document.querySelector('input[name="phone"]');
     if (!phone) return;
 
-    if (phone.dataset.telcoInstalled === '1') return;
-    phone.dataset.telcoInstalled = '1';
+    if (phone.dataset.telcoFinal === '1') return;
+    phone.dataset.telcoFinal = '1';
 
     phone.setAttribute('inputmode', 'numeric');
     phone.setAttribute('autocomplete', 'tel');
     phone.placeholder = 'Ej: 3001234567';
 
-    // aviso visual
+    // Aviso visual
     var aviso = document.getElementById('phone-warning');
     if (!aviso) {
       aviso = document.createElement('div');
       aviso.id = 'phone-warning';
-      aviso.style.cssText = 'color:#f87171;font-size:13px;margin-top:6px;display:none;';
-      aviso.textContent = 'Ingresa un celular válido de Colombia (10 dígitos, empieza por 3). Ej: 3001234567';
+      aviso.style.cssText = 'color:#dc2626;font-size:13px;margin-top:6px;display:none;font-weight:500;';
+      aviso.textContent = '⚠️ Ingresa un celular válido de Colombia (10 dígitos, empieza por 3). Ej: 3001234567';
       phone.parentNode.appendChild(aviso);
     }
 
     function mostrarError() {
       aviso.style.display = 'block';
-      phone.classList.add('invalid');
+      phone.style.borderColor = '#dc2626';
+      phone.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.2)';
     }
 
     function limpiarError() {
       aviso.style.display = 'none';
-      phone.classList.remove('invalid');
+      phone.style.borderColor = '';
+      phone.style.boxShadow = '';
     }
 
-    // mientras escribe: no borramos, solo limpiamos estado
-    phone.addEventListener('input', function () {
-      limpiarError();
-    });
+    // Al escribir: solo limpiar error visual
+    phone.addEventListener('input', limpiarError);
 
-    // al salir: si inválido -> vacío
+    // Al salir del campo: formatear si es válido, sino mostrar error
     phone.addEventListener('blur', function () {
-      var ok = normalizarTelefonoCO(phone);
-      if (!ok) mostrarError();
-      else limpiarError();
+      var formatted = formatearTelefono(phone.value);
+      if (formatted) {
+        phone.value = formatted;
+        limpiarError();
+      } else if (phone.value.trim()) {
+        mostrarError();
+      }
     });
 
-    function isSubmitAction(e) {
-      var t = e.target;
-      if (!t || !t.closest) return false;
-      return !!t.closest('a[href="#submit-step"]');
-    }
+    // ============================================
+    // INTERCEPTOR GLOBAL DE TODOS LOS CLICKS
+    // Captura ANTES que cualquier otro listener
+    // ============================================
+    function validarYBloquear(e) {
+      var target = e.target;
+      if (!target) return;
 
-    function bloquear(e) {
-      var ok = normalizarTelefonoCO(phone);
-      if (!ok) {
-        mostrarError();
-        phone.focus();
+      // Detectar si es un elemento que podría avanzar el form
+      var esBotonAvance = false;
+      var el = target;
+      
+      // Recorrer hacia arriba buscando elementos de submit
+      while (el && el !== document.body) {
+        // Detectar por href="#submit-step"
+        if (el.tagName === 'A' && el.getAttribute('href') === '#submit-step') {
+          esBotonAvance = true;
+          break;
+        }
+        // Detectar por clase común de Funnelish
+        if (el.classList && (
+          el.classList.contains('submit-step') ||
+          el.classList.contains('next-step') ||
+          el.classList.contains('btn-submit') ||
+          el.classList.contains('funnelish-submit')
+        )) {
+          esBotonAvance = true;
+          break;
+        }
+        // Detectar buttons tipo submit
+        if (el.tagName === 'BUTTON' && (el.type === 'submit' || !el.type)) {
+          esBotonAvance = true;
+          break;
+        }
+        // Detectar inputs tipo submit
+        if (el.tagName === 'INPUT' && el.type === 'submit') {
+          esBotonAvance = true;
+          break;
+        }
+        el = el.parentElement;
+      }
+
+      if (!esBotonAvance) return;
+
+      // Validar teléfono
+      var phoneInput = document.querySelector('input[name="phone"]');
+      if (!phoneInput) return;
+
+      var formatted = formatearTelefono(phoneInput.value);
+      
+      if (!formatted) {
+        // BLOQUEAR TODO
+        bloqueando = true;
+        
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
+        
+        mostrarError();
+        phoneInput.focus();
+        
+        // Asegurar que el valor no sea aceptable por Funnelish
+        // Funnelish valida el value, si está mal formateado lo rechaza
+        // Pero por si acaso, lo vaciamos temporalmente
+        var valorOriginal = phoneInput.value;
+        phoneInput.value = '';
+        
+        // Restaurar después de un tick para que el usuario vea qué escribió
+        setTimeout(function() {
+          phoneInput.value = valorOriginal;
+          bloqueando = false;
+        }, 50);
+        
         return false;
+      } else {
+        // Asegurar formato correcto antes de enviar
+        phoneInput.value = formatted;
+        limpiarError();
       }
-      limpiarError();
-      return true;
     }
 
-    // Bloqueo en DOCUMENTO en CAPTURA (antes que Funnelish)
-    document.addEventListener('pointerdown', function (e) {
-      if (isSubmitAction(e)) bloquear(e);
-    }, true);
+    // Instalar en CAPTURA con la máxima prioridad
+    if (!document.body.dataset.phoneBlockerInstalled) {
+      document.body.dataset.phoneBlockerInstalled = '1';
+      
+      ['pointerdown', 'mousedown', 'touchstart', 'click'].forEach(function(evt) {
+        document.addEventListener(evt, validarYBloquear, true);
+      });
+      
+      // También en submit del form
+      document.addEventListener('submit', function(e) {
+        var phoneInput = document.querySelector('input[name="phone"]');
+        if (phoneInput && !esTelefonoValido(phoneInput.value)) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          mostrarError();
+          phoneInput.focus();
+          return false;
+        }
+      }, true);
+    }
 
-    document.addEventListener('touchstart', function (e) {
-      if (isSubmitAction(e)) bloquear(e);
-    }, true);
+    // ============================================
+    // OBSERVADOR DE VALOR DEL INPUT
+    // Si Funnelish intenta leer/enviar un valor malo,
+    // lo interceptamos con un getter/setter
+    // ============================================
+    var valorInterno = phone.value || '';
+    
+    // Solo si no está ya interceptado
+    if (!phone.dataset.valueIntercepted) {
+      phone.dataset.valueIntercepted = '1';
+      
+      Object.defineProperty(phone, 'value', {
+        get: function() {
+          // Si estamos bloqueando, devolver vacío para que Funnelish falle validación
+          if (bloqueando) return '';
+          return valorInterno;
+        },
+        set: function(v) {
+          valorInterno = v;
+          // Actualizar el atributo para mantener sincronía visual
+          phone.setAttribute('value', v);
+        },
+        configurable: true
+      });
+    }
 
-    document.addEventListener('click', function (e) {
-      if (isSubmitAction(e)) bloquear(e);
-    }, true);
-
-    // Enter
-    phone.addEventListener('keydown', function (e) {
+    // ============================================
+    // BLOQUEO DE TECLA ENTER
+    // ============================================
+    phone.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
-        bloquear(e);
+        var formatted = formatearTelefono(phone.value);
+        if (!formatted) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          mostrarError();
+          return false;
+        }
       }
-    }, true);
-
-    // submit real si existe
-    document.addEventListener('submit', function (e) {
-      bloquear(e);
     }, true);
   }
 
@@ -311,55 +414,33 @@
       crearAutocompletado(ciudad);
     }
 
-    // Teléfono definitivo
+    // Teléfono con bloqueo total
     instalarTelefonoCO();
   }
 
   // =========================
-  // BOOTSTRAP ANTI-RENDER
+  // BOOTSTRAP
   // =========================
   function boot() { initCore(); }
 
-  // DOM ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 500); });
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 300); });
   } else {
-    setTimeout(boot, 500);
+    setTimeout(boot, 300);
   }
 
-  // Polling por si el form embebido aparece tarde
+  // Polling para forms embebidos que cargan tarde
   var tries = 0;
-  var maxTries = 80; // ~20s
   var poll = setInterval(function () {
     tries++;
     boot();
-    if (document.querySelector('input[name="phone"]') || tries >= maxTries) {
+    if (document.querySelector('input[name="phone"]') || tries >= 80) {
       clearInterval(poll);
     }
   }, 250);
 
-  // Observer por si Funnelish re-renderiza
+  // Observer para re-renderizados de Funnelish
   var mo = new MutationObserver(function () { boot(); });
   mo.observe(document.documentElement, { childList: true, subtree: true });
-
-  // Último guardián en submit (si ocurre)
-  document.addEventListener('submit', function (e) {
-    var tel = document.querySelector('input[name="phone"]');
-    var email = document.querySelector('input[name="email"]');
-    var ciudad = document.querySelector('input[name="shipping_city"]');
-
-    if (tel) {
-      var ok = normalizarTelefonoCO(tel);
-      if (!ok) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        tel.focus();
-        return false;
-      }
-    }
-    if (email && !email.value) email.value = generarEmail();
-    if (ciudad && ciudad.value) seleccionarDepartamento(ciudad.value.trim());
-  }, true);
 
 })();
