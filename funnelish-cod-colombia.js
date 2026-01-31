@@ -303,3 +303,131 @@
     }, true);
     
 })();
+(function () {
+  const PHONE_NAME = "phone";
+  const SUBMIT_SELECTOR = 'a[href="#submit-step"], button[type="submit"], [data-action="submit"]';
+
+  function onlyDigits(v) { return (v || "").replace(/\D+/g, ""); }
+  function isValidCO10(num) { return /^3\d{9}$/.test(num); }
+
+  function ensureUI() {
+    const real = document.getElementsByName(PHONE_NAME)[0];
+    if (!real) return;
+
+    // Evitar duplicar
+    if (real.dataset.coPhoneEnhanced === "1") return;
+    real.dataset.coPhoneEnhanced = "1";
+
+    // Ocultar input real SIN romper Funnelish
+    try { real.type = "hidden"; } catch (e) { real.style.display = "none"; }
+
+    // Wrapper UI
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%; margin-top:6px;";
+
+    const warning = document.createElement("div");
+    warning.style.cssText = "display:none;color:#e74c3c;font-size:13px;margin:6px 0 0;";
+    warning.textContent = "Debe ser un móvil de Colombia de 10 dígitos. Ej: 3001234567";
+
+    const field = document.createElement("div");
+    field.style.cssText =
+      "display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;width:100%;box-sizing:border-box;";
+
+    const prefix = document.createElement("span");
+    prefix.textContent = "+57";
+    prefix.style.cssText =
+      "display:flex;align-items:center;justify-content:center;min-width:56px;height:38px;padding:0 12px;background:#f2f4f7;border:1px solid #e2e8f0;border-radius:8px;color:#475569;font-weight:700;user-select:none;";
+
+    const visible = document.createElement("input");
+    visible.type = "text";
+    visible.inputMode = "numeric";
+    visible.autocomplete = "tel-national";
+    visible.placeholder = "3001234567";
+    visible.maxLength = 10;
+    visible.style.cssText =
+      "border:none;outline:none;flex:1;font-size:14px;padding:8px 6px;min-width:120px;";
+
+    // Insertar UI justo después del real
+    field.appendChild(prefix);
+    field.appendChild(visible);
+    wrap.appendChild(field);
+    wrap.appendChild(warning);
+    real.parentElement.insertBefore(wrap, real.nextSibling);
+
+    // Si ya había valor en real, lo reflejamos (ej: +573001234567)
+    const existing = onlyDigits(real.value);
+    if (existing.startsWith("57") && existing.length === 12) {
+      const local = existing.slice(2);
+      if (local.length === 10) visible.value = local;
+    }
+
+    function syncAndValidate(showMsg) {
+      let num = onlyDigits(visible.value);
+
+      // Regla CO: si el primer dígito no es 3, vaciamos (evita fijos)
+      if (num.length === 1 && num !== "3") num = "";
+      // limitar a 10
+      if (num.length > 10) num = num.slice(0, 10);
+
+      if (num !== visible.value) visible.value = num;
+
+      // set value real
+      real.value = num ? ("+57" + num) : "";
+
+      const ok = isValidCO10(num);
+
+      // feedback visual
+      if (!num) {
+        field.style.border = "1px solid #e2e8f0";
+        warning.style.display = "none";
+        return false;
+      }
+
+      if (!ok) {
+        field.style.border = "2px solid #e74c3c";
+        warning.style.display = showMsg ? "block" : "none";
+        return false;
+      }
+
+      field.style.border = "1px solid #22c55e";
+      warning.style.display = "none";
+      return true;
+    }
+
+    visible.addEventListener("input", () => syncAndValidate(false));
+    visible.addEventListener("blur", () => syncAndValidate(true));
+
+    // BLOQUEO FUERTE (click + submit)
+    function hardBlock(e) {
+      const ok = syncAndValidate(true);
+      if (!ok) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        visible.focus();
+        return false;
+      }
+      return true;
+    }
+
+    // Captura submit real
+    document.addEventListener("submit", hardBlock, true);
+
+    // Captura clicks de botones/links de Funnelish
+    document.querySelectorAll(SUBMIT_SELECTOR).forEach(btn => {
+      btn.addEventListener("click", hardBlock, true);
+    });
+  }
+
+  // Inicial + re-render
+  function boot() { ensureUI(); }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => setTimeout(boot, 300));
+  } else {
+    setTimeout(boot, 300);
+  }
+
+  new MutationObserver(() => boot()).observe(document.documentElement, { childList: true, subtree: true });
+
+})();
