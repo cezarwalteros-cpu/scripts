@@ -301,133 +301,118 @@
         if (email && !email.value) email.value = generarEmail();
         if (ciudad && ciudad.value) seleccionarDepartamento(ciudad.value.trim());
     }, true);
-    
-})();
-(function () {
-  const PHONE_NAME = "phone";
-  const SUBMIT_SELECTOR = 'a[href="#submit-step"], button[type="submit"], [data-action="submit"]';
 
-  function onlyDigits(v) { return (v || "").replace(/\D+/g, ""); }
-  function isValidCO10(num) { return /^3\d{9}$/.test(num); }
+    // =========================
+// TELÉFONO CO (MISMO INPUT REAL) - ESTILO DEL EJEMPLO QUE FUNCIONA
+// =========================
+function phoneIsValid_CO(input) {
+    // 1) Leemos lo que sea que escribió el usuario
+    var raw = (input.value || '').toString();
 
-  function ensureUI() {
-    const real = document.getElementsByName(PHONE_NAME)[0];
-    if (!real) return;
+    // 2) Solo dígitos
+    var digits = raw.replace(/[^0-9]/g, '');
 
-    // Evitar duplicar
-    if (real.dataset.coPhoneEnhanced === "1") return;
-    real.dataset.coPhoneEnhanced = "1";
+    // 3) Si escribió 57 o +57, lo quitamos (nosotros lo ponemos)
+    if (digits.startsWith('57')) digits = digits.substring(2);
 
-    // Ocultar input real SIN romper Funnelish
-    try { real.type = "hidden"; } catch (e) { real.style.display = "none"; }
+    // 4) Regla Colombia móvil: debe iniciar con 3 (si no, vaciamos)
+    if (digits.length >= 1 && !digits.startsWith('3')) digits = '';
 
-    // Wrapper UI
-    const wrap = document.createElement("div");
-    wrap.style.cssText = "width:100%; margin-top:6px;";
+    // 5) Máximo 10 dígitos
+    if (digits.length > 10) digits = digits.slice(0, 10);
 
-    const warning = document.createElement("div");
-    warning.style.cssText = "display:none;color:#e74c3c;font-size:13px;margin:6px 0 0;";
-    warning.textContent = "Debe ser un móvil de Colombia de 10 dígitos. Ej: 3001234567";
+    // 6) Reescribimos el MISMO input real en formato Funnelish: +57##########
+    input.value = '+57' + digits;
 
-    const field = document.createElement("div");
-    field.style.cssText =
-      "display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;width:100%;box-sizing:border-box;";
+    // 7) Válido si tiene exactamente 10 dígitos
+    return digits.length === 10;
+}
 
-    const prefix = document.createElement("span");
-    prefix.textContent = "+57";
-    prefix.style.cssText =
-      "display:flex;align-items:center;justify-content:center;min-width:56px;height:38px;padding:0 12px;background:#f2f4f7;border:1px solid #e2e8f0;border-radius:8px;color:#475569;font-weight:700;user-select:none;";
+function instalarValidacionTelefonoCO() {
+    var inputTelefono = document.querySelector('input[name="phone"]');
+    if (!inputTelefono) return;
 
-    const visible = document.createElement("input");
-    visible.type = "text";
-    visible.inputMode = "numeric";
-    visible.autocomplete = "tel-national";
-    visible.placeholder = "3001234567";
-    visible.maxLength = 10;
-    visible.style.cssText =
-      "border:none;outline:none;flex:1;font-size:14px;padding:8px 6px;min-width:120px;";
+    // Evitar doble instalación
+    if (inputTelefono.dataset.telcoInstalled === '1') return;
+    inputTelefono.dataset.telcoInstalled = '1';
 
-    // Insertar UI justo después del real
-    field.appendChild(prefix);
-    field.appendChild(visible);
-    wrap.appendChild(field);
-    wrap.appendChild(warning);
-    real.parentElement.insertBefore(wrap, real.nextSibling);
+    // UX: placeholder
+    inputTelefono.setAttribute('inputmode', 'numeric');
+    inputTelefono.placeholder = 'Ej: 3054859895';
 
-    // Si ya había valor en real, lo reflejamos (ej: +573001234567)
-    const existing = onlyDigits(real.value);
-    if (existing.startsWith("57") && existing.length === 12) {
-      const local = existing.slice(2);
-      if (local.length === 10) visible.value = local;
+    // Crear aviso (igual que tu ejemplo, pero bien)
+    var warn = document.createElement('div');
+    warn.id = 'telco-warning';
+    warn.style.cssText = 'display:none; margin-top:6px; color:#f87171; font-size:13px;';
+    warn.textContent = 'Exactamente 10 números. Ej: 3054859895';
+    inputTelefono.parentNode.insertBefore(warn, inputTelefono.nextSibling);
+
+    function actualizarUI(valid) {
+        if (!valid) {
+            warn.style.display = 'block';
+            inputTelefono.classList.add('invalid');
+        } else {
+            warn.style.display = 'none';
+            inputTelefono.classList.remove('invalid');
+        }
     }
 
-    function syncAndValidate(showMsg) {
-      let num = onlyDigits(visible.value);
-
-      // Regla CO: si el primer dígito no es 3, vaciamos (evita fijos)
-      if (num.length === 1 && num !== "3") num = "";
-      // limitar a 10
-      if (num.length > 10) num = num.slice(0, 10);
-
-      if (num !== visible.value) visible.value = num;
-
-      // set value real
-      real.value = num ? ("+57" + num) : "";
-
-      const ok = isValidCO10(num);
-
-      // feedback visual
-      if (!num) {
-        field.style.border = "1px solid #e2e8f0";
-        warning.style.display = "none";
-        return false;
-      }
-
-      if (!ok) {
-        field.style.border = "2px solid #e74c3c";
-        warning.style.display = showMsg ? "block" : "none";
-        return false;
-      }
-
-      field.style.border = "1px solid #22c55e";
-      warning.style.display = "none";
-      return true;
-    }
-
-    visible.addEventListener("input", () => syncAndValidate(false));
-    visible.addEventListener("blur", () => syncAndValidate(true));
-
-    // BLOQUEO FUERTE (click + submit)
-    function hardBlock(e) {
-      const ok = syncAndValidate(true);
-      if (!ok) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        visible.focus();
-        return false;
-      }
-      return true;
-    }
-
-    // Captura submit real
-    document.addEventListener("submit", hardBlock, true);
-
-    // Captura clicks de botones/links de Funnelish
-    document.querySelectorAll(SUBMIT_SELECTOR).forEach(btn => {
-      btn.addEventListener("click", hardBlock, true);
+    // Forzar formato en vivo (MISMO input real)
+    inputTelefono.addEventListener('input', function () {
+        var valid = phoneIsValid_CO(inputTelefono);
+        // Mientras escribe, NO estorbar demasiado: solo mostramos si ya escribió algo
+        var soloDigits = (inputTelefono.value || '').replace(/\D/g,'');
+        // soloDigits incluye 57; si quedó solo +57 => length 2, lo consideramos "vacío"
+        if (soloDigits.length <= 2) {
+            warn.style.display = 'none';
+            inputTelefono.classList.remove('invalid');
+            return;
+        }
+        actualizarUI(valid);
     });
-  }
 
-  // Inicial + re-render
-  function boot() { ensureUI(); }
+    inputTelefono.addEventListener('blur', function () {
+        var valid = phoneIsValid_CO(inputTelefono);
+        actualizarUI(valid);
+    });
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => setTimeout(boot, 300));
-  } else {
-    setTimeout(boot, 300);
-  }
+    // Bloqueo REAL del avance: mismo patrón del ejemplo
+    function bloquearSiInvalido(event) {
+        var valid = phoneIsValid_CO(inputTelefono);
+        if (!valid) {
+            actualizarUI(false);
+            // esto es lo que realmente frena a Funnelish
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            inputTelefono.focus();
+            return false;
+        }
+        actualizarUI(true);
+        return true;
+    }
 
-  new MutationObserver(() => boot()).observe(document.documentElement, { childList: true, subtree: true });
+    // Enganchar al botón de Funnelish (a veces hay varios)
+    function hookSubmitButtons() {
+        var btns = document.querySelectorAll('a[href="#submit-step"]');
+        btns.forEach(function(btn){
+            if (btn.dataset.telcoHooked === '1') return;
+            btn.dataset.telcoHooked = '1';
+            btn.addEventListener('click', bloquearSiInvalido, true); // captura = clave
+        });
+    }
 
+    hookSubmitButtons();
+
+    // Si Funnelish re-renderiza, re-enganchar botones
+    var mo = new MutationObserver(function(){
+        hookSubmitButtons();
+    });
+    mo.observe(document.documentElement, {childList:true, subtree:true});
+}
+
+// Llamar en tu init() (o al final del script con timeout)
+setTimeout(instalarValidacionTelefonoCO, 700);
+
+    
 })();
