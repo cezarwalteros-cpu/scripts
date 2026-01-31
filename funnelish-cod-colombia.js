@@ -1,7 +1,17 @@
 (function () {
+  // =========================
+  // CONFIGURACIÓN
+  // =========================
+  var CONFIG = {
+    pais: 'CO',
+    dial: '+57',
+    regex: /^3\d{9}$/,
+    maxLength: 10,
+    mensaje: 'Debe empezar con 3 y tener 10 dígitos. Ej: 3001234567'
+  };
 
   // =========================
-  // DATA
+  // DATA COLOMBIA
   // =========================
   var ciudadesColombia = {
     "Leticia": "Amazonas", "Puerto Nariño": "Amazonas",
@@ -59,6 +69,10 @@
   // =========================
   // UTILS
   // =========================
+  function soloDigitos(v) {
+    return (v || '').replace(/\D+/g, '');
+  }
+
   function generarEmail() {
     return 'cliente' + Math.random().toString().slice(2, 10) + Date.now().toString().slice(-4) + '@codcolombia.co';
   }
@@ -73,8 +87,7 @@
 
   function inyectarDepartamentos() {
     var select = document.querySelector('select[name="shipping_state"]');
-    if (!select) return;
-    if (select.dataset.deptosInjected === '1') return;
+    if (!select || select.dataset.deptosInjected === '1') return;
     select.dataset.deptosInjected = '1';
     select.innerHTML = '<option value="">Departamento</option>';
     departamentosColombia.forEach(function (d) {
@@ -104,7 +117,6 @@
     input.dataset.cityAutocomplete = '1';
 
     var box = document.createElement('div');
-    box.id = 'sugerencias-ciudad';
     box.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ccc;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;z-index:99999;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
 
     input.parentElement.style.position = 'relative';
@@ -145,301 +157,187 @@
   }
 
   // =========================
-  // VALIDACIÓN TELÉFONO CO
+  // ESTILOS TELÉFONO
   // =========================
-  function formatearTelefono(valor) {
-    var digits = (valor || '').replace(/\D/g, '');
-    if (digits.startsWith('57') && digits.length > 10) digits = digits.slice(2);
-    if (digits.length > 10) digits = digits.slice(0, 10);
-    if (digits.length === 10 && digits.startsWith('3')) return '+57' + digits;
-    return null;
-  }
-
-  // =========================
-  // VARIABLES GLOBALES
-  // =========================
-  var avisoEl = null;
-  var overlayEl = null;
-
-  function crearAviso(phone) {
-    if (avisoEl) return avisoEl;
-    avisoEl = document.createElement('div');
-    avisoEl.id = 'phone-warning-v3';
-    avisoEl.style.cssText = 'color:#dc2626;font-size:13px;margin-top:6px;display:none;font-weight:600;';
-    avisoEl.textContent = '⚠️ Celular inválido. Debe tener 10 dígitos y empezar por 3. Ej: 3001234567';
-    phone.parentNode.appendChild(avisoEl);
-    return avisoEl;
-  }
-
-  function mostrarError(phone) {
-    if (!avisoEl) crearAviso(phone);
-    avisoEl.style.display = 'block';
-    phone.style.borderColor = '#dc2626';
-    phone.style.boxShadow = '0 0 0 3px rgba(220,38,38,0.3)';
-  }
-
-  function limpiarError(phone) {
-    if (avisoEl) avisoEl.style.display = 'none';
-    phone.style.borderColor = '';
-    phone.style.boxShadow = '';
-  }
-
-  // =========================
-  // OVERLAY BLOQUEADOR
-  // Cubre el botón para impedir clicks
-  // =========================
-  function crearOverlay() {
-    if (overlayEl) return overlayEl;
-    overlayEl = document.createElement('div');
-    overlayEl.id = 'phone-blocker-overlay';
-    overlayEl.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:999999;display:none;cursor:not-allowed;';
-    document.body.appendChild(overlayEl);
-    
-    overlayEl.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      var phone = document.querySelector('input[name="phone"]');
-      if (phone) {
-        mostrarError(phone);
-        phone.focus();
+  function inyectarEstilos() {
+    if (document.getElementById('cod-co-phone-styles')) return;
+    var css = document.createElement('style');
+    css.id = 'cod-co-phone-styles';
+    css.textContent = `
+      .cod-phone-wrapper {
+        width: 100%;
+        box-sizing: border-box;
       }
-      return false;
-    }, true);
-    
-    return overlayEl;
-  }
-
-  function activarBloqueo() {
-    if (!overlayEl) crearOverlay();
-    overlayEl.style.display = 'block';
-    
-    // Auto-desactivar después de 100ms para no bloquear permanentemente
-    setTimeout(function() {
-      if (overlayEl) overlayEl.style.display = 'none';
-    }, 150);
-  }
-
-  // =========================
-  // TELÉFONO PRINCIPAL
-  // =========================
-  function instalarTelefonoCO() {
-    var phone = document.querySelector('input[name="phone"]');
-    if (!phone) return;
-    if (phone.dataset.telcoV3 === '1') return;
-    phone.dataset.telcoV3 = '1';
-
-    phone.setAttribute('inputmode', 'numeric');
-    phone.setAttribute('autocomplete', 'tel');
-    phone.placeholder = 'Ej: 3001234567';
-
-    crearAviso(phone);
-    crearOverlay();
-
-    // Limpiar error al escribir
-    phone.addEventListener('input', function() {
-      limpiarError(phone);
-    });
-
-    // Formatear al salir
-    phone.addEventListener('blur', function () {
-      var fmt = formatearTelefono(phone.value);
-      if (fmt) {
-        phone.value = fmt;
-        limpiarError(phone);
-      } else if (phone.value.trim()) {
-        mostrarError(phone);
+      .cod-phone-field {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        transition: border-color 0.2s, box-shadow 0.2s;
       }
-    });
-
-    // Enter
-    phone.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') {
-        var fmt = formatearTelefono(phone.value);
-        if (!fmt) {
-          e.preventDefault();
-          e.stopPropagation();
-          mostrarError(phone);
-        }
+      .cod-phone-field:focus-within {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
       }
-    }, true);
+      .cod-phone-field.invalid {
+        border-color: #ef4444;
+        box-shadow: 0 0 0 3px rgba(239,68,68,0.15);
+      }
+      .cod-phone-prefix {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 50px;
+        padding: 6px 10px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #475569;
+        background: #f1f5f9;
+        border-radius: 6px;
+        user-select: none;
+      }
+      .cod-phone-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font-size: 15px;
+        padding: 6px 4px;
+        min-width: 0;
+        background: transparent;
+      }
+      .cod-phone-input::placeholder {
+        color: #94a3b8;
+      }
+      .cod-phone-warning {
+        color: #ef4444;
+        font-size: 13px;
+        margin-top: 6px;
+        display: none;
+        font-weight: 500;
+      }
+    `;
+    document.head.appendChild(css);
   }
 
   // =========================
-  // INTERCEPTOR GLOBAL
-  // Detecta intento de click en submit y activa overlay si inválido
+  // UI TELÉFONO (INPUT HIDDEN + VISIBLE)
   // =========================
-  function instalarInterceptorGlobal() {
-    if (window.__phoneInterceptorV3) return;
-    window.__phoneInterceptorV3 = true;
+  function construirTelefonoUI(hiddenInput) {
+    if (hiddenInput.dataset.codPhoneEnhanced === '1') return;
+    hiddenInput.dataset.codPhoneEnhanced = '1';
 
-    function verificarYBloquear(e) {
-      var target = e.target;
-      if (!target) return;
+    // Convertir el input original a hidden
+    try {
+      hiddenInput.type = 'hidden';
+    } catch (e) {
+      hiddenInput.style.display = 'none';
+    }
 
-      // Verificar si es el botón de submit
-      var btn = target.closest ? target.closest('a[href="#submit-step"]') : null;
-      if (!btn) {
-        // También verificar por clase
-        var el = target;
-        while (el && el !== document.body) {
-          if (el.tagName === 'A' && el.getAttribute('href') === '#submit-step') {
-            btn = el;
-            break;
-          }
-          el = el.parentElement;
-        }
-      }
+    // Crear wrapper
+    var wrapper = document.createElement('div');
+    wrapper.className = 'cod-phone-wrapper';
+
+    // Campo visual
+    var field = document.createElement('div');
+    field.className = 'cod-phone-field';
+
+    // Prefijo (+57)
+    var prefix = document.createElement('span');
+    prefix.className = 'cod-phone-prefix';
+    prefix.textContent = CONFIG.dial;
+
+    // Input visible
+    var visibleInput = document.createElement('input');
+    visibleInput.type = 'text';
+    visibleInput.className = 'cod-phone-input';
+    visibleInput.placeholder = 'Ej: 3001234567';
+    visibleInput.setAttribute('inputmode', 'numeric');
+    visibleInput.setAttribute('autocomplete', 'tel-national');
+
+    field.appendChild(prefix);
+    field.appendChild(visibleInput);
+    wrapper.appendChild(field);
+
+    // Mensaje de advertencia
+    var warning = document.createElement('div');
+    warning.className = 'cod-phone-warning';
+    warning.textContent = '⚠️ ' + CONFIG.mensaje;
+    wrapper.appendChild(warning);
+
+    // Insertar después del input original
+    var parent = hiddenInput.parentElement;
+    if (parent) {
+      parent.insertBefore(wrapper, hiddenInput.nextSibling);
+    }
+
+    // =========================
+    // LÓGICA DE SINCRONIZACIÓN
+    // =========================
+    function actualizarHidden() {
+      var num = soloDigitos(visibleInput.value);
       
-      if (!btn) return;
-
-      var phone = document.querySelector('input[name="phone"]');
-      if (!phone) return;
-
-      var fmt = formatearTelefono(phone.value);
-      
-      if (!fmt) {
-        // BLOQUEAR - Activar overlay inmediatamente
-        activarBloqueo();
-        mostrarError(phone);
-        
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        
-        // Scroll al campo de teléfono
-        phone.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(function() { phone.focus(); }, 100);
-        
-        console.log('[COD-CO] Teléfono inválido, bloqueado');
-        return false;
+      // Solo actualizar el hidden si el número es VÁLIDO
+      if (CONFIG.regex.test(num)) {
+        hiddenInput.value = CONFIG.dial + num;
+        field.classList.remove('invalid');
+        warning.style.display = 'none';
       } else {
-        phone.value = fmt;
-        limpiarError(phone);
-      }
-    }
-
-    // Capturar TODOS los eventos posibles antes que Alpine
-    ['mousedown', 'pointerdown', 'touchstart'].forEach(function(evt) {
-      document.addEventListener(evt, verificarYBloquear, { capture: true, passive: false });
-    });
-
-    // También en click por si acaso
-    document.addEventListener('click', function(e) {
-      var target = e.target;
-      var btn = target.closest ? target.closest('a[href="#submit-step"]') : null;
-      if (!btn) return;
-      
-      var phone = document.querySelector('input[name="phone"]');
-      if (!phone) return;
-      
-      var fmt = formatearTelefono(phone.value);
-      if (!fmt) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        mostrarError(phone);
-        phone.focus();
-        return false;
-      }
-    }, { capture: true, passive: false });
-
-    console.log('[COD-CO] Interceptor global V3 instalado');
-  }
-
-  // =========================
-  // MODIFICAR EL BOTÓN DIRECTAMENTE
-  // Agregar nuestro propio onclick ANTES del de Alpine
-  // =========================
-  function modificarBoton() {
-    var btns = document.querySelectorAll('a[href="#submit-step"]');
-    btns.forEach(function(btn) {
-      if (btn.dataset.phoneValidatorAttached === '1') return;
-      btn.dataset.phoneValidatorAttached = '1';
-      
-      // Crear un wrapper div que capture el click primero
-      var wrapper = document.createElement('div');
-      wrapper.style.cssText = 'display:contents;';
-      wrapper.dataset.phoneWrapper = '1';
-      
-      // Mover el botón dentro del wrapper
-      btn.parentNode.insertBefore(wrapper, btn);
-      wrapper.appendChild(btn);
-      
-      // Interceptar en el wrapper
-      wrapper.addEventListener('click', function(e) {
-        var phone = document.querySelector('input[name="phone"]');
-        if (!phone) return;
+        // Si no es válido, el hidden queda VACÍO
+        // Así Funnelish no puede avanzar
+        hiddenInput.value = '';
         
-        var fmt = formatearTelefono(phone.value);
-        if (!fmt) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          mostrarError(phone);
-          phone.focus();
-          console.log('[COD-CO] Bloqueado en wrapper');
-          return false;
+        if (num.length > 0) {
+          field.classList.add('invalid');
+          warning.style.display = 'block';
+        } else {
+          field.classList.remove('invalid');
+          warning.style.display = 'none';
         }
-        phone.value = fmt;
-        limpiarError(phone);
-      }, { capture: true, passive: false });
-      
-      console.log('[COD-CO] Wrapper instalado en botón');
-    });
-  }
-
-  // =========================
-  // HACK: Deshabilitar temporalmente x-on:click
-  // =========================
-  function deshabilitarAlpineEnBoton() {
-    var btns = document.querySelectorAll('a[href="#submit-step"]');
-    btns.forEach(function(btn) {
-      if (btn.dataset.alpineHacked === '1') return;
-      
-      var phone = document.querySelector('input[name="phone"]');
-      if (!phone) return;
-      
-      // Guardar el atributo original
-      var originalXOnClick = btn.getAttribute('x-on:click');
-      if (!originalXOnClick) return;
-      
-      btn.dataset.alpineHacked = '1';
-      btn.dataset.originalXOnClick = originalXOnClick;
-      
-      // Reemplazar con nuestra versión que valida primero
-      var newHandler = "if(!window.__validarTelefonoCO || !window.__validarTelefonoCO()){$event.preventDefault();$event.stopPropagation();return false;}" + originalXOnClick;
-      btn.setAttribute('x-on:click', newHandler);
-      
-      console.log('[COD-CO] x-on:click modificado');
-    });
-  }
-
-  // Función global de validación
-  window.__validarTelefonoCO = function() {
-    var phone = document.querySelector('input[name="phone"]');
-    if (!phone) return true;
-    
-    var fmt = formatearTelefono(phone.value);
-    if (!fmt) {
-      mostrarError(phone);
-      phone.focus();
-      console.log('[COD-CO] Validación global falló');
-      return false;
+      }
     }
-    phone.value = fmt;
-    limpiarError(phone);
-    return true;
-  };
+
+    // Validación en tiempo real
+    visibleInput.addEventListener('input', function (e) {
+      var val = soloDigitos(e.target.value);
+
+      // Solo permitir que empiece con 3
+      if (val.length === 1 && val !== '3') {
+        val = '';
+      }
+
+      // Limitar longitud
+      if (val.length > CONFIG.maxLength) {
+        val = val.slice(0, CONFIG.maxLength);
+      }
+
+      // Actualizar valor visible si cambió
+      if (val !== soloDigitos(e.target.value)) {
+        e.target.value = val;
+      }
+
+      actualizarHidden();
+    });
+
+    // También validar en blur
+    visibleInput.addEventListener('blur', actualizarHidden);
+
+    // Estado inicial
+    actualizarHidden();
+  }
 
   // =========================
-  // INIT
+  // INIT GENERAL
   // =========================
   function initCore() {
+    // Email aleatorio y oculto
     var email = document.querySelector('input[name="email"]');
     if (email && !email.value) email.value = generarEmail();
     ocultarCampo('email');
 
+    // País CO y oculto
     var pais = document.querySelector('select[name="shipping_country"]');
     if (pais && pais.dataset.countryLocked !== '1') {
       pais.dataset.countryLocked = '1';
@@ -453,9 +351,11 @@
     }
     ocultarCampo('shipping_country');
 
+    // Departamentos y oculto
     inyectarDepartamentos();
     ocultarCampo('shipping_state');
 
+    // Ciudad autocompletado
     var ciudad = document.querySelector('input[name="shipping_city"]');
     if (ciudad) {
       ciudad.placeholder = 'Escribe tu ciudad...';
@@ -463,33 +363,47 @@
       crearAutocompletado(ciudad);
     }
 
-    instalarTelefonoCO();
-    instalarInterceptorGlobal();
-    modificarBoton();
-    deshabilitarAlpineEnBoton();
+    // Teléfono con UI mejorada
+    var phone = document.querySelector('input[name="phone"]');
+    if (phone && phone.dataset.codPhoneEnhanced !== '1') {
+      inyectarEstilos();
+      construirTelefonoUI(phone);
+    }
   }
 
   // =========================
   // BOOTSTRAP
   // =========================
-  function boot() { initCore(); }
+  function boot() {
+    initCore();
+  }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 300); });
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout(boot, 300);
+    });
   } else {
     setTimeout(boot, 300);
   }
 
+  // Polling para forms que cargan tarde
   var tries = 0;
   var poll = setInterval(function () {
     tries++;
     boot();
-    if (document.querySelector('input[name="phone"]') || tries >= 80) {
+    var phone = document.querySelector('input[name="phone"]');
+    if ((phone && phone.dataset.codPhoneEnhanced === '1') || tries >= 80) {
       clearInterval(poll);
     }
   }, 250);
 
-  var mo = new MutationObserver(function () { boot(); });
+  // Observer para re-renderizados
+  var mo = new MutationObserver(function () {
+    var phone = document.querySelector('input[name="phone"]');
+    if (phone && phone.dataset.codPhoneEnhanced !== '1') {
+      boot();
+    }
+  });
   mo.observe(document.documentElement, { childList: true, subtree: true });
 
 })();
