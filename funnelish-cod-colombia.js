@@ -57,7 +57,7 @@
   var listaCiudades = Object.keys(ciudadesColombia).sort();
 
   // =========================
-  // HELPERS
+  // UTILS
   // =========================
   function generarEmail() {
     return 'cliente' + Math.random().toString().slice(2, 10) + Date.now().toString().slice(-4) + '@codcolombia.co';
@@ -65,16 +65,16 @@
 
   function ocultarCampo(nombre) {
     var el = document.querySelector('[name="' + nombre + '"]');
-    if (!el) return;
-    var formEl = el.closest('.form-element');
-    if (formEl) formEl.style.display = 'none';
+    if (el) {
+      var formEl = el.closest('.form-element');
+      if (formEl) formEl.style.display = 'none';
+    }
   }
 
   function inyectarDepartamentos() {
     var select = document.querySelector('select[name="shipping_state"]');
     if (!select) return;
 
-    // Evitar reinyecciones destructivas si ya contiene opciones
     if (select.dataset.deptosInjected === '1') return;
     select.dataset.deptosInjected = '1';
 
@@ -157,135 +157,135 @@
   }
 
   // =========================
-  // TELÉFONO CO (ANTI-FALLOS)
-  // - Misma caja input[name="phone"]
-  // - Fuerza +57 + 10 dígitos (móvil 3xxxxxxxxx)
-  // - Bloqueo definitivo en DOCUMENT CAPTURE (pointerdown/touchstart/click)
+  // TELÉFONO CO (DEFINITIVO)
+  // Regla: SI ES INVÁLIDO → INPUT QUEDA VACÍO
+  // Así Funnelish NO puede avanzar.
   // =========================
-  function phoneIsValid_CO(input) {
+  function normalizarTelefonoCO(input) {
     var raw = (input.value || '').toString();
-    var digits = raw.replace(/[^0-9]/g, '');
+    var digits = raw.replace(/\D/g, '');
 
-    // si incluyó 57, lo retiramos y lo ponemos nosotros
+    // quitar 57 si lo escriben
     if (digits.startsWith('57')) digits = digits.slice(2);
 
-    // móvil CO debe iniciar con 3 (si hay algo escrito)
-    if (digits.length >= 1 && !digits.startsWith('3')) digits = '';
+    // si empieza mal o está vacío -> inválido
+    if (!digits || !digits.startsWith('3')) {
+      input.value = '';
+      return false;
+    }
 
     // limitar a 10
     if (digits.length > 10) digits = digits.slice(0, 10);
 
+    // incompleto -> inválido
+    if (digits.length !== 10) {
+      input.value = '';
+      return false;
+    }
+
     input.value = '+57' + digits;
-    return digits.length === 10;
+    return true;
   }
 
   function instalarTelefonoCO() {
-    var inputTelefono = document.querySelector('input[name="phone"]');
-    if (!inputTelefono) return;
+    var phone = document.querySelector('input[name="phone"]');
+    if (!phone) return;
 
-    if (inputTelefono.dataset.telcoInstalled === '1') return;
-    inputTelefono.dataset.telcoInstalled = '1';
+    if (phone.dataset.telcoInstalled === '1') return;
+    phone.dataset.telcoInstalled = '1';
 
-    inputTelefono.setAttribute('inputmode', 'numeric');
-    inputTelefono.setAttribute('autocomplete', 'tel');
-    inputTelefono.placeholder = 'Ej: 3001234567';
+    phone.setAttribute('inputmode', 'numeric');
+    phone.setAttribute('autocomplete', 'tel');
+    phone.placeholder = 'Ej: 3001234567';
 
-    // aviso
+    // aviso visual
     var aviso = document.getElementById('phone-warning');
     if (!aviso) {
       aviso = document.createElement('div');
       aviso.id = 'phone-warning';
       aviso.style.cssText = 'color:#f87171;font-size:13px;margin-top:6px;display:none;';
-      aviso.textContent = 'Número inválido. Debe ser móvil colombiano (10 dígitos). Ej: 3001234567';
-      inputTelefono.parentNode.appendChild(aviso);
+      aviso.textContent = 'Ingresa un celular válido de Colombia (10 dígitos, empieza por 3). Ej: 3001234567';
+      phone.parentNode.appendChild(aviso);
     }
 
-    function actualizarUI(valid, forceShow) {
-      var all = (inputTelefono.value || '').replace(/\D/g, '');
-      var isEmpty = all.length <= 2; // solo "57" -> equivale a +57 vacío
-
-      if (isEmpty) {
-        aviso.style.display = 'none';
-        inputTelefono.classList.remove('invalid');
-        return;
-      }
-
-      if (!valid) {
-        aviso.style.display = forceShow ? 'block' : 'block';
-        inputTelefono.classList.add('invalid');
-      } else {
-        aviso.style.display = 'none';
-        inputTelefono.classList.remove('invalid');
-      }
+    function mostrarError() {
+      aviso.style.display = 'block';
+      phone.classList.add('invalid');
     }
 
-    // formateo en vivo
-    inputTelefono.addEventListener('input', function () {
-      var valid = phoneIsValid_CO(inputTelefono);
-      actualizarUI(valid, false);
+    function limpiarError() {
+      aviso.style.display = 'none';
+      phone.classList.remove('invalid');
+    }
+
+    // mientras escribe: no borramos, solo limpiamos estado
+    phone.addEventListener('input', function () {
+      limpiarError();
     });
 
-    inputTelefono.addEventListener('blur', function () {
-      var valid = phoneIsValid_CO(inputTelefono);
-      actualizarUI(valid, true);
+    // al salir: si inválido -> vacío
+    phone.addEventListener('blur', function () {
+      var ok = normalizarTelefonoCO(phone);
+      if (!ok) mostrarError();
+      else limpiarError();
     });
 
-    // Bloqueo central
-    function bloquearSiInvalido(e) {
-      var ok = phoneIsValid_CO(inputTelefono);
-      if (!ok) {
-        actualizarUI(false, true);
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        inputTelefono.focus();
-        return false;
-      }
-      actualizarUI(true, false);
-      return true;
-    }
-
-    // Detectar click/press en el botón real de Funnelish
     function isSubmitAction(e) {
       var t = e.target;
       if (!t || !t.closest) return false;
       return !!t.closest('a[href="#submit-step"]');
     }
 
-    // Hook definitivo: DOCUMENTO en CAPTURA (antes que Funnelish)
-    function docHook(type) {
-      document.addEventListener(type, function (e) {
-        if (isSubmitAction(e)) bloquearSiInvalido(e);
-      }, true);
+    function bloquear(e) {
+      var ok = normalizarTelefonoCO(phone);
+      if (!ok) {
+        mostrarError();
+        phone.focus();
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return false;
+      }
+      limpiarError();
+      return true;
     }
 
-    docHook('pointerdown');
-    docHook('touchstart');
-    docHook('click');
-
-    // Por si hay submit real
-    document.addEventListener('submit', function (e) {
-      bloquearSiInvalido(e);
+    // Bloqueo en DOCUMENTO en CAPTURA (antes que Funnelish)
+    document.addEventListener('pointerdown', function (e) {
+      if (isSubmitAction(e)) bloquear(e);
     }, true);
 
-    // Por si el usuario presiona Enter en el campo
-    inputTelefono.addEventListener('keydown', function (e) {
+    document.addEventListener('touchstart', function (e) {
+      if (isSubmitAction(e)) bloquear(e);
+    }, true);
+
+    document.addEventListener('click', function (e) {
+      if (isSubmitAction(e)) bloquear(e);
+    }, true);
+
+    // Enter
+    phone.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') {
-        bloquearSiInvalido(e);
+        bloquear(e);
       }
+    }, true);
+
+    // submit real si existe
+    document.addEventListener('submit', function (e) {
+      bloquear(e);
     }, true);
   }
 
   // =========================
-  // INIT CORE
+  // INIT
   // =========================
   function initCore() {
-    // Email
+    // Email aleatorio y oculto
     var email = document.querySelector('input[name="email"]');
     if (email && !email.value) email.value = generarEmail();
     ocultarCampo('email');
 
-    // País CO
+    // País CO y oculto
     var pais = document.querySelector('select[name="shipping_country"]');
     if (pais && pais.dataset.countryLocked !== '1') {
       pais.dataset.countryLocked = '1';
@@ -299,11 +299,11 @@
     }
     ocultarCampo('shipping_country');
 
-    // Departamentos
+    // Departamentos y oculto
     inyectarDepartamentos();
     ocultarCampo('shipping_state');
 
-    // Ciudad
+    // Ciudad autocompletado
     var ciudad = document.querySelector('input[name="shipping_city"]');
     if (ciudad) {
       ciudad.placeholder = 'Escribe tu ciudad...';
@@ -311,29 +311,14 @@
       crearAutocompletado(ciudad);
     }
 
-    // Teléfono CO
+    // Teléfono definitivo
     instalarTelefonoCO();
   }
 
   // =========================
   // BOOTSTRAP ANTI-RENDER
   // =========================
-  function boot() {
-    initCore();
-  }
-
-  // polling (por si los inputs cargan tarde)
-  var tries = 0;
-  var maxTries = 60; // ~15s
-  var poll = setInterval(function () {
-    tries++;
-    boot();
-    // si ya existen los 3 campos principales, paramos
-    var ok = document.querySelector('input[name="phone"]') &&
-             document.querySelector('input[name="shipping_city"]') &&
-             document.querySelector('select[name="shipping_country"], input[name="shipping_country"]');
-    if (ok || tries >= maxTries) clearInterval(poll);
-  }, 250);
+  function boot() { initCore(); }
 
   // DOM ready
   if (document.readyState === 'loading') {
@@ -342,18 +327,29 @@
     setTimeout(boot, 500);
   }
 
-  // MutationObserver (re-render de funnelish)
+  // Polling por si el form embebido aparece tarde
+  var tries = 0;
+  var maxTries = 80; // ~20s
+  var poll = setInterval(function () {
+    tries++;
+    boot();
+    if (document.querySelector('input[name="phone"]') || tries >= maxTries) {
+      clearInterval(poll);
+    }
+  }, 250);
+
+  // Observer por si Funnelish re-renderiza
   var mo = new MutationObserver(function () { boot(); });
   mo.observe(document.documentElement, { childList: true, subtree: true });
 
-  // Submit final (último guardián)
+  // Último guardián en submit (si ocurre)
   document.addEventListener('submit', function (e) {
     var tel = document.querySelector('input[name="phone"]');
     var email = document.querySelector('input[name="email"]');
     var ciudad = document.querySelector('input[name="shipping_city"]');
 
     if (tel) {
-      var ok = phoneIsValid_CO(tel);
+      var ok = normalizarTelefonoCO(tel);
       if (!ok) {
         e.preventDefault();
         e.stopPropagation();
