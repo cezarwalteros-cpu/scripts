@@ -58,57 +58,96 @@
     }
 
     // =========================
-    // TELÉFONO (CO) - INTUITIVO
+    // TELÉFONO CO (COMPATIBLE FUNNELISH)
     // =========================
-    function extraerMovilCO(valor) {
+    function normalizarTelefonoCO(valor) {
         var nums = (valor || '').replace(/\D/g, '');
+        // si escriben +57..., quita el 57
         if (nums.startsWith('57')) nums = nums.slice(2);
-        if (!/^3\d{9}$/.test(nums)) return null;  // 10 dígitos y empieza por 3
-        return nums;
+        // debe quedar 10 y empezar por 3
+        if (!/^3\d{9}$/.test(nums)) return null;
+        return '+57' + nums;
     }
 
-    function construirUI57(input) {
-        if (input.dataset.ui57 === '1') return;
-        input.dataset.ui57 = '1';
+    function attachTelefonoCO() {
+        var tel = document.querySelector('input[name="phone"]');
+        if (!tel) return;
 
-        var wrap = document.createElement('div');
-        wrap.style.cssText =
-            'display:flex;align-items:stretch;width:100%;border:1px solid #cfd6dd;border-radius:10px;overflow:hidden;background:#fff';
+        // Evitar re-enganchar
+        if (tel.dataset.telco === '1') return;
+        tel.dataset.telco = '1';
 
-        var pref = document.createElement('div');
-        pref.textContent = '+57';
-        pref.style.cssText =
-            'display:flex;align-items:center;justify-content:center;padding:0 12px;font-weight:700;background:#f2f4f7;border-right:1px solid #cfd6dd;min-width:56px;user-select:none';
+        tel.setAttribute('inputmode', 'numeric');
+        tel.setAttribute('autocomplete', 'tel');
 
-        var parent = input.parentNode;
-        parent.insertBefore(wrap, input);
-        wrap.appendChild(pref);
-        wrap.appendChild(input);
+        // UX: arrancar con +57 (sin mover el DOM)
+        if (!tel.value || tel.value.trim() === '') tel.value = '+57';
 
-        input.style.border = '0';
-        input.style.outline = '0';
-        input.style.boxShadow = 'none';
-        input.style.width = '100%';
-        input.style.padding = '12px';
-        input.style.margin = '0';
-    }
+        // Limites razonables: +57 + 10 dígitos = 13
+        tel.setAttribute('maxlength', '13');
+        tel.placeholder = '+57 3XXXXXXXXX';
 
-    function marcarErrorTelefono(input) {
-        var wrap = input.parentElement;
-        if (wrap && wrap.style && wrap.style.display === 'flex') {
-            wrap.style.border = '2px solid #e74c3c';
-        } else {
-            input.style.border = '2px solid #e74c3c';
+        function moverCursorDespuesPrefijo() {
+            try { tel.setSelectionRange(3, 3); } catch (e) {}
         }
-    }
 
-    function limpiarErrorTelefono(input) {
-        var wrap = input.parentElement;
-        if (wrap && wrap.style && wrap.style.display === 'flex') {
-            wrap.style.border = '1px solid #cfd6dd';
-        } else {
-            input.style.border = '';
-        }
+        // Si hacen focus/click antes del +57, lo corrige
+        tel.addEventListener('focus', function() {
+            if ((tel.value || '').startsWith('+57')) {
+                setTimeout(function(){
+                    var pos = tel.selectionStart || 0;
+                    if (pos < 3) moverCursorDespuesPrefijo();
+                }, 0);
+            }
+        });
+
+        tel.addEventListener('click', function() {
+            var pos = tel.selectionStart || 0;
+            if (pos < 3) moverCursorDespuesPrefijo();
+        });
+
+        // No permitir borrar el prefijo
+        tel.addEventListener('keydown', function(e) {
+            var pos = tel.selectionStart || 0;
+            var s1 = tel.selectionStart || 0;
+            var s2 = tel.selectionEnd || 0;
+
+            if ((e.key === 'Backspace' && pos <= 3) || (e.key === 'Delete' && pos < 3) || (s1 < 3 && (e.key === 'Backspace' || e.key === 'Delete'))) {
+                e.preventDefault();
+                moverCursorDespuesPrefijo();
+            }
+        });
+
+        // Limpieza constante
+        tel.addEventListener('input', function() {
+            var raw = tel.value || '';
+
+            // fuerza prefijo
+            if (!raw.startsWith('+57')) {
+                raw = '+57' + raw.replace(/\D/g, '').replace(/^57/, '');
+            }
+
+            // solo + y digitos
+            raw = raw.replace(/[^\d+]/g, '');
+
+            // recorta a 13
+            if (raw.length > 13) raw = raw.slice(0, 13);
+
+            tel.value = raw;
+
+            // Validación suave (sin bloquear mientras escribe)
+            tel.setCustomValidity('');
+        });
+
+        // Validación al salir
+        tel.addEventListener('blur', function() {
+            var ok = /^\+573\d{9}$/.test((tel.value || '').replace(/\s/g, ''));
+            if (!ok) {
+                tel.setCustomValidity('Ingresa un móvil válido: +57 3XXXXXXXXX (10 dígitos)');
+            } else {
+                tel.setCustomValidity('');
+            }
+        });
     }
     // =========================
     
@@ -222,34 +261,9 @@
             ciudad.setAttribute('autocomplete', 'off');
             crearAutocompletado(ciudad);
         }
-        
-        // TELÉFONO - UX simple: solo 10 dígitos, +57 visual fijo
-        var tel = document.querySelector('input[name="phone"]');
-        if (tel) {
-            tel.setAttribute('inputmode', 'numeric');
-            tel.setAttribute('autocomplete', 'tel');
-            tel.setAttribute('maxlength', '10');
-            tel.placeholder = '3001234567';
 
-            construirUI57(tel);
-
-            tel.addEventListener('input', function() {
-                var v = tel.value.replace(/\D/g, '');
-                if (v.startsWith('57')) v = v.slice(2);
-                if (v.length > 10) v = v.slice(0, 10);
-                tel.value = v;
-
-                if (!v) { limpiarErrorTelefono(tel); return; }
-                if (v.length < 10) { limpiarErrorTelefono(tel); return; }
-                if (!/^3\d{9}$/.test(v)) { marcarErrorTelefono(tel); return; }
-                limpiarErrorTelefono(tel);
-            });
-
-            tel.addEventListener('blur', function() {
-                if (!tel.value) return;
-                if (tel.value.length === 10 && !/^3\d{9}$/.test(tel.value)) marcarErrorTelefono(tel);
-            });
-        }
+        // Teléfono CO (enganche robusto)
+        attachTelefonoCO();
     }
     
     if (document.readyState === 'loading') {
@@ -257,26 +271,33 @@
     } else {
         setTimeout(init, 500);
     }
+
+    // Si Funnelish re-renderiza inputs, re-engancha teléfono
+    var obs = new MutationObserver(function() {
+        attachTelefonoCO();
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
     
     document.addEventListener('submit', function(event) {
         var tel = document.querySelector('input[name="phone"]');
         var email = document.querySelector('input[name="email"]');
         var ciudad = document.querySelector('input[name="shipping_city"]');
-        
-        // BLOQUEA si el teléfono está incompleto/incorrecto y normaliza a +57XXXXXXXXXX
+
+        // Validación final + bloqueo real
         if (tel) {
-            var movil = extraerMovilCO(tel.value);
-            if (!movil) {
+            var normal = normalizarTelefonoCO(tel.value);
+            if (!normal) {
                 event.preventDefault();
                 event.stopPropagation();
-                marcarErrorTelefono(tel);
-                alert('⚠️ Ingresa un número móvil válido de Colombia (10 dígitos). Ej: 3001234567');
+                tel.setCustomValidity('Ingresa un móvil válido: +57 3XXXXXXXXX (10 dígitos)');
+                if (typeof tel.reportValidity === 'function') tel.reportValidity();
                 tel.focus();
                 return false;
             }
-            tel.value = '+57' + movil;
+            tel.setCustomValidity('');
+            tel.value = normal; // Funnelish recibe +57XXXXXXXXXX
         }
-
+        
         if (email && !email.value) email.value = generarEmail();
         if (ciudad && ciudad.value) seleccionarDepartamento(ciudad.value.trim());
     }, true);
