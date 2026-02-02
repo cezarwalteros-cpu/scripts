@@ -269,7 +269,7 @@
         }
         
         // ========== SETUP NOMBRE PARA CARRITO ABANDONADO ==========
-        var nombre = document.querySelector('input[name="first_name"], input[name="shipping_first_name"], input[name="name"]');
+        var nombre = document.querySelector('input[name="full_name"], input[name="shipping_full_name"], input[name="name"]');
         if (nombre) {
             nombre.addEventListener('input', function() {
                 window.carritoAbandonado.nombre = this.value.trim();
@@ -341,7 +341,7 @@
             var datos = {
                 body: {
                     event_type: 'abandono_pagina',
-                    first_name: ca.nombre,
+                    full_name: ca.nombre,
                     phone: ca.telefono,
                     city: ciudad ? ciudad.value : '',
                     address: direccion ? direccion.value : '',
