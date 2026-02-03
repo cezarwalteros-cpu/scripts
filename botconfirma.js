@@ -329,34 +329,49 @@ if (nombre) {
     }, true);
     
     // ========== CARRITO ABANDONADO - ENVIAR AL CERRAR PÁGINA ==========
-    window.addEventListener('beforeunload', function() {
-        var ca = window.carritoAbandonado;
-        
-        if (ca.nombre && ca.telefono.length >= 10 && !ca.dioClickComprar) {
-            
-            var ciudad = document.querySelector('input[name="shipping_city"]');
-            var direccion = document.querySelector('input[name="shipping_address"]');
-            var email = document.querySelector('input[name="email"]');
-           var producto = document.querySelector('.pl-item, .product-name, [data-product-name], .product-title');
-var precio = document.querySelector('.pl-item .price, .pl-item-price, .product-price, .price, .total-price');
+    window.addEventListener('beforeunload', function () {
+  var ca = window.carritoAbandonado;
 
-var datos = {
-    body: {
+  if (ca.nombre && ca.telefono.length >= 10 && !ca.dioClickComprar) {
+
+    var ciudad = document.querySelector('input[name="shipping_city"]');
+    var direccion = document.querySelector('input[name="shipping_address"]');
+    var email = document.querySelector('input[name="email"]');
+
+    // ✅ PRODUCTO + PRECIO (según tu estructura .pl-item / .pl-name / .pl-price)
+    var itemSel =
+      document.querySelector('.pl-item.selected') ||
+      (document.querySelector('input.pl-radio[name="product-id"]:checked') &&
+        document.querySelector('input.pl-radio[name="product-id"]:checked').closest('.pl-item')) ||
+      document.querySelector('.pl-item');
+
+    var productoEl = itemSel ? (itemSel.querySelector('.pl-name .pl-pvalue') || itemSel.querySelector('.pl-name')) : null;
+
+    // En tu captura el precio final está en el ÚLTIMO <strong> dentro de .pl-price
+    var precioEl = itemSel ? (itemSel.querySelector('.pl-price .pl-pvalue strong:last-of-type') || itemSel.querySelector('.pl-price .pl-pvalue') || itemSel.querySelector('.pl-price')) : null;
+
+    var productoTxt = productoEl ? productoEl.textContent.trim().replace(/\s+/g, ' ').substring(0, 100) : 'Producto';
+    var precioTxt = precioEl ? precioEl.textContent : '';
+    var precioNum = parseInt((precioTxt.match(/\d[\d\.\,]*/g)?.join('') || '').replace(/[^\d]/g, ''), 10) || 0;
+
+    var datos = {
+      body: {
         event_type: 'abandono_pagina',
         first_name: ca.nombre,
         phone: ca.telefono,
         city: ciudad ? ciudad.value : '',
         address: direccion ? direccion.value : '',
         email: email ? email.value : '',
-        product_name: producto ? producto.textContent.trim().substring(0, 100) : 'Producto',
-        product_price: precio ? parseInt(precio.textContent.replace(/\D/g, '')) || 0 : 0,
+        product_name: productoTxt,
+        product_price: precioNum,
         page_url: window.location.href
-    }
-};        
-            var blob = new Blob([JSON.stringify(datos)], { type: 'application/json' });
-navigator.sendBeacon(ca.webhook, blob);
-            console.log('📤 Carrito abandonado enviado:', datos);
-        }
-    });
+      }
+    };
+
+    var blob = new Blob([JSON.stringify(datos)], { type: 'application/json' });
+    navigator.sendBeacon(ca.webhook, blob);
+    console.log('📤 Carrito abandonado enviado:', datos);
+  }
+});
     
-})();
+
