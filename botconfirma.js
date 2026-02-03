@@ -329,7 +329,60 @@ if (nombre) {
     }, true);
     
     // ========== CARRITO ABANDONADO - ENVIAR AL CERRAR PÁGINA ==========
-    window.addEventListener('beforeunload', function () {
+(function initProductoCarrito() {
+  window.carritoAbandonado = window.carritoAbandonado || {};
+
+  function getSelectedPLItem() {
+    return document.querySelector('.pl-item.selected')
+      || (document.querySelector('input.pl-radio[name="product-id"]:checked')?.closest('.pl-item'))
+      || document.querySelector('.pl-item');
+  }
+
+  function extractProduct(item) {
+    if (!item) return { name: 'Producto', price: 0 };
+
+    const nameEl = item.querySelector('.pl-name .pl-pvalue') || item.querySelector('.pl-name');
+    const priceEl =
+      item.querySelector('.pl-price .pl-pvalue strong:last-of-type') ||
+      item.querySelector('.pl-price .pl-pvalue') ||
+      item.querySelector('.pl-price');
+
+    const name = nameEl ? nameEl.textContent.trim().replace(/\s+/g, ' ').substring(0, 100) : 'Producto';
+
+    const priceText = priceEl ? priceEl.textContent : '';
+    const price = parseInt((priceText.match(/\d[\d\.\,]*/g)?.join('') || '').replace(/[^\d]/g, ''), 10) || 0;
+
+    return { name, price };
+  }
+
+  function saveCurrentSelection() {
+    const item = getSelectedPLItem();
+    const p = extractProduct(item);
+    window.carritoAbandonado.product_name = p.name;
+    window.carritoAbandonado.product_price = p.price;
+  }
+
+  // Captura al cargar
+  setTimeout(saveCurrentSelection, 400);
+
+  // Captura cuando cambian radios (lo más confiable)
+  document.addEventListener('change', function(e) {
+    if (e.target && e.target.matches('input.pl-radio[name="product-id"]')) {
+      setTimeout(saveCurrentSelection, 50);
+    }
+  }, true);
+
+  // Captura por si seleccionan haciendo click en el contenedor
+  document.addEventListener('click', function(e) {
+    if (e.target && e.target.closest('.pl-item')) {
+      setTimeout(saveCurrentSelection, 50);
+    }
+  }, true);
+})();
+
+
+    
+   window.addEventListener('beforeunload', function() {
   var ca = window.carritoAbandonado;
 
   if (ca.nombre && ca.telefono.length >= 10 && !ca.dioClickComprar) {
@@ -337,22 +390,6 @@ if (nombre) {
     var ciudad = document.querySelector('input[name="shipping_city"]');
     var direccion = document.querySelector('input[name="shipping_address"]');
     var email = document.querySelector('input[name="email"]');
-
-    // ✅ PRODUCTO + PRECIO (según tu estructura .pl-item / .pl-name / .pl-price)
-    var itemSel =
-      document.querySelector('.pl-item.selected') ||
-      (document.querySelector('input.pl-radio[name="product-id"]:checked') &&
-        document.querySelector('input.pl-radio[name="product-id"]:checked').closest('.pl-item')) ||
-      document.querySelector('.pl-item');
-
-    var productoEl = itemSel ? (itemSel.querySelector('.pl-name .pl-pvalue') || itemSel.querySelector('.pl-name')) : null;
-
-    // En tu captura el precio final está en el ÚLTIMO <strong> dentro de .pl-price
-    var precioEl = itemSel ? (itemSel.querySelector('.pl-price .pl-pvalue strong:last-of-type') || itemSel.querySelector('.pl-price .pl-pvalue') || itemSel.querySelector('.pl-price')) : null;
-
-    var productoTxt = productoEl ? productoEl.textContent.trim().replace(/\s+/g, ' ').substring(0, 100) : 'Producto';
-    var precioTxt = precioEl ? precioEl.textContent : '';
-    var precioNum = parseInt((precioTxt.match(/\d[\d\.\,]*/g)?.join('') || '').replace(/[^\d]/g, ''), 10) || 0;
 
     var datos = {
       body: {
@@ -362,8 +399,8 @@ if (nombre) {
         city: ciudad ? ciudad.value : '',
         address: direccion ? direccion.value : '',
         email: email ? email.value : '',
-        product_name: productoTxt,
-        product_price: precioNum,
+        product_name: ca.product_name || 'Producto',
+        product_price: ca.product_price || 0,
         page_url: window.location.href
       }
     };
@@ -373,5 +410,5 @@ if (nombre) {
     console.log('📤 Carrito abandonado enviado:', datos);
   }
 });
-    
+
 
