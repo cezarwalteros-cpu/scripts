@@ -478,21 +478,3 @@ if (nombre) {
   // 4) Exponer una función para test manual
   window.__forceCaptureProduct = () => saveCurrentSelection('manual');
 })();
-function extractProduct(item) {
-  if (!item) return { name: 'Producto', price: 0 };
-
-  // Nombre exacto: <span class="name">HEMOCREAM oferta 2 X 1</span>
-  const nameEl = item.querySelector('.pl-name .name');
-  const name = nameEl
-    ? nameEl.textContent.trim().replace(/\s+/g, ' ').substring(0, 100)
-    : 'Producto';
-
-  // Precio exacto: <div class="pl-price"><span class="pl-pvalue"><p>Col</p><p><strong>$79.900</strong></p>
-  const priceEl = item.querySelector('.pl-price .pl-pvalue p:last-of-type strong')
-    || item.querySelector('.pl-price .pl-pvalue strong:last-of-type');
-
-  const priceText = priceEl ? priceEl.textContent : '';
-  const price = parseInt(priceText.replace(/[^\d]/g, ''), 10) || 0;
-
-  return { name, price };
-}
