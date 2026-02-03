@@ -337,20 +337,22 @@ if (nombre) {
             var ciudad = document.querySelector('input[name="shipping_city"]');
             var direccion = document.querySelector('input[name="shipping_address"]');
             var email = document.querySelector('input[name="email"]');
-            var producto = document.querySelector('.product-name, [data-product-name], .product-title, h1, .offer-title');
-            
-            var datos = {
-                body: {
-                    event_type: 'abandono_pagina',
-                    first_name: ca.nombre,
-                    phone: ca.telefono,
-                    city: ciudad ? ciudad.value : '',
-                    address: direccion ? direccion.value : '',
-                    email: email ? email.value : '',
-                    product_name: producto ? producto.textContent.trim().substring(0, 100) : 'Producto',
-                    page_url: window.location.href
-                }
-            };
+            var producto = document.querySelector('.product-name, [data-product-name], .product-title, .offer-title, h1');
+var precio = document.querySelector('.product-price, [data-product-price], .offer-price, .price, .total-price');
+
+var datos = {
+    body: {
+        event_type: 'abandono_pagina',
+        first_name: ca.nombre,
+        phone: ca.telefono,
+        city: ciudad ? ciudad.value : '',
+        address: direccion ? direccion.value : '',
+        email: email ? email.value : '',
+        product_name: producto ? producto.textContent.trim().substring(0, 100) : 'Producto',
+        product_price: precio ? parseInt(precio.textContent.replace(/\D/g, '')) || 0 : 0,
+        page_url: window.location.href
+    }
+};
             
             var blob = new Blob([JSON.stringify(datos)], { type: 'application/json' });
 navigator.sendBeacon(ca.webhook, blob);
