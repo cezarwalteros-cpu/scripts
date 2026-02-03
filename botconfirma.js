@@ -337,8 +337,8 @@ if (nombre) {
             var ciudad = document.querySelector('input[name="shipping_city"]');
             var direccion = document.querySelector('input[name="shipping_address"]');
             var email = document.querySelector('input[name="email"]');
-            var producto = document.querySelector('.product-name, [data-product-name], .product-title, .offer-title, h1');
-var precio = document.querySelector('.product-price, [data-product-price], .offer-price, .price, .total-price');
+           var producto = document.querySelector('.pl-item, .product-name, [data-product-name], .product-title');
+var precio = document.querySelector('.pl-item .price, .pl-item-price, .product-price, .price, .total-price');
 
 var datos = {
     body: {
@@ -352,8 +352,7 @@ var datos = {
         product_price: precio ? parseInt(precio.textContent.replace(/\D/g, '')) || 0 : 0,
         page_url: window.location.href
     }
-};
-            
+};        
             var blob = new Blob([JSON.stringify(datos)], { type: 'application/json' });
 navigator.sendBeacon(ca.webhook, blob);
             console.log('📤 Carrito abandonado enviado:', datos);
