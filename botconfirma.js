@@ -411,4 +411,71 @@ if (nombre) {
   }
 });
 
+(function () {
+  window.carritoAbandonado = window.carritoAbandonado || {};
+
+  function getSelectedPLItem() {
+    return document.querySelector('.pl-item.selected')
+      || (document.querySelector('input.pl-radio[name="product-id"]:checked')?.closest('.pl-item'))
+      || document.querySelector('.pl-item');
+  }
+
+  function extractProduct(item) {
+    if (!item) return null;
+
+    const nameEl = item.querySelector('.pl-name .pl-pvalue') || item.querySelector('.pl-name');
+    const priceEl =
+      item.querySelector('.pl-price .pl-pvalue strong:last-of-type') ||
+      item.querySelector('.pl-price .pl-pvalue') ||
+      item.querySelector('.pl-price');
+
+    const name = nameEl ? nameEl.textContent.trim().replace(/\s+/g, ' ').substring(0, 100) : '';
+    const priceText = priceEl ? priceEl.textContent : '';
+    const price = parseInt((priceText.match(/\d[\d\.\,]*/g)?.join('') || '').replace(/[^\d]/g, ''), 10) || 0;
+
+    if (!name && !price) return null;
+    return { name: name || 'Producto', price };
+  }
+
+  function saveCurrentSelection(reason) {
+    const item = getSelectedPLItem();
+    const p = extractProduct(item);
+
+    if (p) {
+      window.carritoAbandonado.product_name = p.name;
+      window.carritoAbandonado.product_price = p.price;
+
+      // debug opcional
+      // console.log('✅ Producto capturado:', reason, p);
+    } else {
+      // debug opcional
+      // console.log('⚠️ No encontré producto todavía:', reason, { hasPlItem: !!document.querySelector('.pl-item') });
+    }
+  }
+
+  // 1) Intentos escalonados (por carga lenta)
+  setTimeout(() => saveCurrentSelection('t+300ms'), 300);
+  setTimeout(() => saveCurrentSelection('t+1000ms'), 1000);
+  setTimeout(() => saveCurrentSelection('t+2500ms'), 2500);
+
+  // 2) Eventos típicos
+  document.addEventListener('change', (e) => {
+    if (e.target?.matches('input.pl-radio[name="product-id"]')) {
+      setTimeout(() => saveCurrentSelection('radio change'), 50);
+    }
+  }, true);
+
+  document.addEventListener('click', (e) => {
+    if (e.target?.closest('.pl-item')) {
+      setTimeout(() => saveCurrentSelection('pl-item click'), 50);
+    }
+  }, true);
+
+  // 3) MutationObserver: si Funnelish renderiza después, lo capturamos
+  const obs = new MutationObserver(() => saveCurrentSelection('dom mutation'));
+  obs.observe(document.documentElement, { childList: true, subtree: true });
+
+  // 4) Exponer una función para test manual
+  window.__forceCaptureProduct = () => saveCurrentSelection('manual');
+})();
 
