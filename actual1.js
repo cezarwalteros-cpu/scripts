@@ -328,8 +328,9 @@ if (nombre) {
         
     }, true);
     
-    // ========== CARRITO ABANDONADO - ENVIAR AL CERRAR PÁGINA ==========
+ // ========== CARRITO ABANDONADO - CAPTURAR PRODUCTO + ENVIAR ==========
 (function initProductoCarrito() {
+  // NO reescribas el objeto (solo asegúrate que existe)
   window.carritoAbandonado = window.carritoAbandonado || {};
 
   function getSelectedPLItem() {
@@ -338,19 +339,23 @@ if (nombre) {
       || document.querySelector('.pl-item');
   }
 
+  // ✅ SELECTORES EXACTOS según tu DOM:
+  // Nombre: .pl-name .name
+  // Precio: .pl-price .pl-pvalue p:last-of-type strong  -> "$79.900"
   function extractProduct(item) {
     if (!item) return { name: 'Producto', price: 0 };
 
-    const nameEl = item.querySelector('.pl-name .pl-pvalue') || item.querySelector('.pl-name');
+    const nameEl = item.querySelector('.pl-name .name');
     const priceEl =
-      item.querySelector('.pl-price .pl-pvalue strong:last-of-type') ||
-      item.querySelector('.pl-price .pl-pvalue') ||
-      item.querySelector('.pl-price');
+      item.querySelector('.pl-price .pl-pvalue p:last-of-type strong') ||
+      item.querySelector('.pl-price .pl-pvalue strong:last-of-type');
 
-    const name = nameEl ? nameEl.textContent.trim().replace(/\s+/g, ' ').substring(0, 100) : 'Producto';
+    const name = nameEl
+      ? nameEl.textContent.trim().replace(/\s+/g, ' ').substring(0, 100)
+      : 'Producto';
 
     const priceText = priceEl ? priceEl.textContent : '';
-    const price = parseInt((priceText.match(/\d[\d\.\,]*/g)?.join('') || '').replace(/[^\d]/g, ''), 10) || 0;
+    const price = parseInt(priceText.replace(/[^\d]/g, ''), 10) || 0;
 
     return { name, price };
   }
@@ -358,35 +363,44 @@ if (nombre) {
   function saveCurrentSelection() {
     const item = getSelectedPLItem();
     const p = extractProduct(item);
+
+    // Guarda en el objeto global (sin pisar nombre/teléfono)
     window.carritoAbandonado.product_name = p.name;
     window.carritoAbandonado.product_price = p.price;
   }
 
-  // Captura al cargar
-  setTimeout(saveCurrentSelection, 400);
+  // Intentos por render dinámico
+  setTimeout(saveCurrentSelection, 300);
+  setTimeout(saveCurrentSelection, 1000);
+  setTimeout(saveCurrentSelection, 2500);
 
-  // Captura cuando cambian radios (lo más confiable)
-  document.addEventListener('change', function(e) {
+  // Cambio de radio
+  document.addEventListener('change', function (e) {
     if (e.target && e.target.matches('input.pl-radio[name="product-id"]')) {
       setTimeout(saveCurrentSelection, 50);
     }
   }, true);
 
-  // Captura por si seleccionan haciendo click en el contenedor
-  document.addEventListener('click', function(e) {
+  // Click en el item
+  document.addEventListener('click', function (e) {
     if (e.target && e.target.closest('.pl-item')) {
       setTimeout(saveCurrentSelection, 50);
     }
   }, true);
+
+  // Debug manual
+  window.__forceCaptureProduct = function () {
+    saveCurrentSelection();
+    return window.carritoAbandonado;
+  };
 })();
 
-
-    
-   window.addEventListener('beforeunload', function() {
+// ✅ UN SOLO beforeunload (no lo dupliques)
+window.addEventListener('beforeunload', function () {
   var ca = window.carritoAbandonado;
 
-  if (ca.nombre && ca.telefono.length >= 10 && !ca.dioClickComprar) {
-
+  // Importante: ca.telefono lo guardas como dígitos (sin +57). OK.
+  if (ca && ca.nombre && ca.telefono && ca.telefono.length >= 10 && !ca.dioClickComprar) {
     var ciudad = document.querySelector('input[name="shipping_city"]');
     var direccion = document.querySelector('input[name="shipping_address"]');
     var email = document.querySelector('input[name="email"]');
@@ -405,76 +419,11 @@ if (nombre) {
       }
     };
 
-    var blob = new Blob([JSON.stringify(datos)], { type: 'application/json' });
-    navigator.sendBeacon(ca.webhook, blob);
+    try {
+      var blob = new Blob([JSON.stringify(datos)], { type: 'application/json' });
+      navigator.sendBeacon(ca.webhook, blob);
+    } catch (e) {}
+
     console.log('📤 Carrito abandonado enviado:', datos);
   }
 });
-
-(function () {
-  window.carritoAbandonado = window.carritoAbandonado || {};
-
-  function getSelectedPLItem() {
-    return document.querySelector('.pl-item.selected')
-      || (document.querySelector('input.pl-radio[name="product-id"]:checked')?.closest('.pl-item'))
-      || document.querySelector('.pl-item');
-  }
-
-  function extractProduct(item) {
-    if (!item) return null;
-
-    const nameEl = item.querySelector('.pl-name .pl-pvalue') || item.querySelector('.pl-name');
-    const priceEl =
-      item.querySelector('.pl-price .pl-pvalue strong:last-of-type') ||
-      item.querySelector('.pl-price .pl-pvalue') ||
-      item.querySelector('.pl-price');
-
-    const name = nameEl ? nameEl.textContent.trim().replace(/\s+/g, ' ').substring(0, 100) : '';
-    const priceText = priceEl ? priceEl.textContent : '';
-    const price = parseInt((priceText.match(/\d[\d\.\,]*/g)?.join('') || '').replace(/[^\d]/g, ''), 10) || 0;
-
-    if (!name && !price) return null;
-    return { name: name || 'Producto', price };
-  }
-
-  function saveCurrentSelection(reason) {
-    const item = getSelectedPLItem();
-    const p = extractProduct(item);
-
-    if (p) {
-      window.carritoAbandonado.product_name = p.name;
-      window.carritoAbandonado.product_price = p.price;
-
-      // debug opcional
-      // console.log('✅ Producto capturado:', reason, p);
-    } else {
-      // debug opcional
-      // console.log('⚠️ No encontré producto todavía:', reason, { hasPlItem: !!document.querySelector('.pl-item') });
-    }
-  }
-
-  // 1) Intentos escalonados (por carga lenta)
-  setTimeout(() => saveCurrentSelection('t+300ms'), 300);
-  setTimeout(() => saveCurrentSelection('t+1000ms'), 1000);
-  setTimeout(() => saveCurrentSelection('t+2500ms'), 2500);
-
-  // 2) Eventos típicos
-  document.addEventListener('change', (e) => {
-    if (e.target?.matches('input.pl-radio[name="product-id"]')) {
-      setTimeout(() => saveCurrentSelection('radio change'), 50);
-    }
-  }, true);
-
-  document.addEventListener('click', (e) => {
-    if (e.target?.closest('.pl-item')) {
-      setTimeout(() => saveCurrentSelection('pl-item click'), 50);
-    }
-  }, true);
-
-  // 3) MutationObserver: si Funnelish renderiza después, lo capturamos
-  const obs = new MutationObserver(() => saveCurrentSelection('dom mutation'));
-  obs.observe(document.documentElement, { childList: true, subtree: true });
-
-  // 4) Exponer una función para test manual
-  window.__forceCaptureProduct = () => saveCurrentSelection('manual');
-})();
