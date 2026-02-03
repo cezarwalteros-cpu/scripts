@@ -352,7 +352,8 @@ if (nombre) {
                 }
             };
             
-            navigator.sendBeacon(ca.webhook, JSON.stringify(datos));
+            var blob = new Blob([JSON.stringify(datos)], { type: 'application/json' });
+navigator.sendBeacon(ca.webhook, blob);
             console.log('📤 Carrito abandonado enviado:', datos);
         }
     });
