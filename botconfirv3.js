@@ -1,4 +1,21 @@
 (function(){
+
+    // ========== SOLO EJECUTAR EN URLs ESPECÍFICAS ==========
+var urlsPermitidas = [
+    'auramarketlat.co/hemocream',
+    'auramarketlat.co/otro-funnel'  // agrega las URLs donde SÍ debe funcionar
+];
+
+var urlActual = window.location.href.toLowerCase();
+var ejecutarScript = urlsPermitidas.some(function(url) {
+    return urlActual.includes(url.toLowerCase());
+});
+
+if (!ejecutarScript) {
+    console.log('⏭️ Carrito abandonado desactivado para esta URL');
+    return; // Sale del script sin ejecutar nada
+}
+// ========== FIN VALIDACIÓN URLs ==========
     
     // ========== CONFIGURACIÓN CARRITO ABANDONADO (GLOBAL) ==========
     window.carritoAbandonado = {
