@@ -329,37 +329,58 @@ if (nombre) {
     }, true);
     
     // ========== CARRITO ABANDONADO - ENVIAR AL CERRAR PÁGINA ==========
-    window.addEventListener('beforeunload', function() {
-        var ca = window.carritoAbandonado;
-        
-        if (ca.nombre && ca.telefono.length >= 10 && !ca.dioClickComprar) {
-            
-            var ciudad = document.querySelector('input[name="shipping_city"]');
-            var direccion = document.querySelector('input[name="shipping_address"]');
-            var email = document.querySelector('input[name="email"]');
-           var productoEl = document.querySelector('.pl-item.selected span.name');
-var precioEl = document.querySelector('.pl-item.selected .pl-pvalue strong:last-child');
-
-var productoNombre = productoEl ? productoEl.textContent.trim() : 'Producto';
-var productoPrecio = precioEl ? parseInt(precioEl.textContent.replace(/\D/g, '')) || 0 : 0;
-
-var datos = {
-    body: {
-        event_type: 'abandono_pagina',
-        first_name: ca.nombre,
-        phone: ca.telefono,
-        city: ciudad ? ciudad.value : '',
-        address: direccion ? direccion.value : '',
-        email: email ? email.value : '',
-        product_name: productoNombre,
-        product_price: productoPrecio,
-        page_url: window.location.href
-    }
-};
-            var blob = new Blob([JSON.stringify(datos)], { type: 'application/json' });
-navigator.sendBeacon(ca.webhook, blob);
-            console.log('📤 Carrito abandonado enviado:', datos);
-        }
-    });
+    // ========== CARRITO ABANDONADO - ENVIAR AL CERRAR/SALIR ==========
+function enviarCarritoAbandonado() {
+    var ca = window.carritoAbandonado;
     
+    if (ca.enviado || ca.dioClickComprar) return;
+    if (!ca.nombre || ca.telefono.length < 10) return;
+    
+    var ciudad = document.querySelector('input[name="shipping_city"]');
+    var direccion = document.querySelector('input[name="shipping_address"]');
+    var email = document.querySelector('input[name="email"]');
+    var productoEl = document.querySelector('.pl-item.selected span.name');
+    var precioEl = document.querySelector('.pl-item.selected .pl-pvalue p:last-child strong');
+    
+    var productoNombre = productoEl ? productoEl.textContent.trim() : 'Producto';
+    var productoPrecio = precioEl ? parseInt(precioEl.textContent.replace(/\D/g, '')) || 0 : 0;
+    
+    var datos = {
+        body: {
+            event_type: 'abandono_pagina',
+            first_name: ca.nombre,
+            phone: ca.telefono,
+            city: ciudad ? ciudad.value : '',
+            address: direccion ? direccion.value : '',
+            email: email ? email.value : '',
+            product_name: productoNombre,
+            product_price: productoPrecio,
+            page_url: window.location.href
+        }
+    };
+    
+    var blob = new Blob([JSON.stringify(datos)], {type: 'application/json'});
+    navigator.sendBeacon(ca.webhook, blob);
+    ca.enviado = true;
+    console.log('📤 Carrito abandonado enviado:', datos);
+}
+
+// Método 1: Al cerrar pestaña
+window.addEventListener('beforeunload', enviarCarritoAbandonado);
+
+// Método 2: Al cambiar de pestaña o minimizar
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+        enviarCarritoAbandonado();
+    }
+});
+
+// Método 3: Al hacer click en links externos
+document.addEventListener('click', function(e) {
+    var link = e.target.closest('a');
+    if (link && link.href && !link.href.includes(window.location.hostname)) {
+        enviarCarritoAbandonado();
+    }
+});
+
 })();
