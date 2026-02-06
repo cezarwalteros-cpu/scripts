@@ -1,6 +1,7 @@
 (function(){
     
-    // ========== CONFIGURACIÓN CARRITO ABANDONADO (GLOBAL) ==========
+    console.log('🚀 Script Carrito Abandonado - VERSIÓN SIN CORS');
+    
     window.carritoAbandonado = {
         webhook: 'https://programacioncwf.app.n8n.cloud/webhook/funnelish-evento-parcial',
         nombre: '',
@@ -9,7 +10,8 @@
         enviado: false,
         emailGenerado: null
     };
-    // ========== FIN CONFIGURACIÓN ==========
+    
+    console.log('✅ Config cargada');
     
     var ciudadesColombia = {
         "Leticia": "Amazonas", "Puerto Nariño": "Amazonas",
@@ -231,19 +233,12 @@
         });
     }
     
+    // ========== FUNCIÓN PARA ENVIAR (SIN CORS) ==========
     function enviarCarritoAbandonado() {
         var ca = window.carritoAbandonado;
         
-        // No enviar si ya se envió, si hizo click en comprar, o si faltan datos
-        if (ca.enviado || ca.dioClickComprar) {
-            console.log('⏭️ Carrito abandonado: no se envía (enviado=' + ca.enviado + ', dioClick=' + ca.dioClickComprar + ')');
-            return;
-        }
-        
-        if (!ca.nombre || ca.telefono.length < 10) {
-            console.log('⏭️ Carrito abandonado: faltan datos (nombre=' + ca.nombre + ', telefono=' + ca.telefono + ')');
-            return;
-        }
+        if (ca.enviado || ca.dioClickComprar) return;
+        if (!ca.nombre || ca.telefono.length < 10) return;
         
         var ciudad = document.querySelector('input[name="shipping_city"]');
         var direccion = document.querySelector('input[name="shipping_address"]');
@@ -251,7 +246,6 @@
         var producto = document.querySelector('.product-name, [data-product-name], .product-title, h1, .offer-title');
         var productoNombre = producto ? producto.textContent.trim().substring(0, 100) : 'Producto';
         
-        // ⚠️ IMPORTANTE: No anides en "body" - n8n espera los datos directo
         var datos = {
             event_type: 'abandono_pagina',
             full_name: ca.nombre,
@@ -264,10 +258,26 @@
             timestamp: new Date().toISOString()
         };
         
-        var blob = new Blob([JSON.stringify(datos)], {type: 'application/json'});
-        navigator.sendBeacon(ca.webhook, blob);
-        ca.enviado = true;
-        console.log('📤 Carrito abandonado ENVIADO a n8n:', datos);
+        console.log('📤 Enviando datos:', datos);
+        
+        // ✅ MÉTODO SIN CORS: Usar FormData
+        var formData = new FormData();
+        formData.append('data', JSON.stringify(datos));
+        
+        fetch(ca.webhook, {
+            method: 'POST',
+            body: formData,
+            keepalive: true,
+            mode: 'no-cors'  // ← IMPORTANTE: Sin validar CORS
+        })
+        .then(function() {
+            ca.enviado = true;
+            console.log('✅ Datos enviados (FormData + no-cors)');
+        })
+        .catch(function(e) {
+            console.log('⚠️ Error:', e.message);
+            ca.enviado = true;
+        });
     }
     
     function init() {
@@ -335,7 +345,7 @@
             });
         }
         
-        console.log('✅ Script formulario + carrito abandonado cargado');
+        console.log('✅ Script completamente cargado');
     }
     
     if (document.readyState === 'loading') {
@@ -388,7 +398,7 @@
         
     }, true);
     
-    // ========== CARRITO ABANDONADO - ENVIAR AL CERRAR/SALIR ==========
+    // ========== DISPARADORES ==========
     window.addEventListener('beforeunload', enviarCarritoAbandonado);
     
     document.addEventListener('visibilitychange', function() {
