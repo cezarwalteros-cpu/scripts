@@ -5,8 +5,8 @@
   // CONFIGURACIÓN - WEBHOOKS N8N
   // =========================
   var CONFIG = {
-    webhookPedidoCompleto: 'https://tu-instancia-n8n.com/webhook/pedido-completo',
-    webhookCarritoAbandonado: 'https://tu-instancia-n8n.com/webhook/carrito-abandonado',
+    webhookPedidoCompleto: 'https://programacioncwf.app.n8n.cloud/webhook/pedido-completo',
+    webhookCarritoAbandonado: 'https://programacioncwf.app.n8n.cloud/webhook/carrito-abandonado',
     tiempoEsperaCarrito: 15000,
     debug: true
   };
