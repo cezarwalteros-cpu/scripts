@@ -236,38 +236,38 @@
         
         // No enviar si ya se envió, si hizo click en comprar, o si faltan datos
         if (ca.enviado || ca.dioClickComprar) {
+            console.log('⏭️ Carrito abandonado: no se envía (enviado=' + ca.enviado + ', dioClick=' + ca.dioClickComprar + ')');
             return;
         }
         
         if (!ca.nombre || ca.telefono.length < 10) {
+            console.log('⏭️ Carrito abandonado: faltan datos (nombre=' + ca.nombre + ', telefono=' + ca.telefono + ')');
             return;
         }
         
         var ciudad = document.querySelector('input[name="shipping_city"]');
         var direccion = document.querySelector('input[name="shipping_address"]');
         var email = document.querySelector('input[name="email"]');
-        
-        // Intentar obtener producto de diferentes selectores
         var producto = document.querySelector('.product-name, [data-product-name], .product-title, h1, .offer-title');
         var productoNombre = producto ? producto.textContent.trim().substring(0, 100) : 'Producto';
         
+        // ⚠️ IMPORTANTE: No anides en "body" - n8n espera los datos directo
         var datos = {
-            body: {
-                event_type: 'abandono_pagina',
-                full_name: ca.nombre,
-                phone: ca.telefono,
-                city: ciudad ? ciudad.value : '',
-                address: direccion ? direccion.value : '',
-                email: email ? email.value : ca.emailGenerado,
-                product_name: productoNombre,
-                page_url: window.location.href
-            }
+            event_type: 'abandono_pagina',
+            full_name: ca.nombre,
+            phone: ca.telefono,
+            city: ciudad ? ciudad.value : '',
+            address: direccion ? direccion.value : '',
+            email: email ? email.value : ca.emailGenerado,
+            product_name: productoNombre,
+            page_url: window.location.href,
+            timestamp: new Date().toISOString()
         };
         
         var blob = new Blob([JSON.stringify(datos)], {type: 'application/json'});
         navigator.sendBeacon(ca.webhook, blob);
         ca.enviado = true;
-        console.log('📤 Carrito abandonado enviado:', datos);
+        console.log('📤 Carrito abandonado ENVIADO a n8n:', datos);
     }
     
     function init() {
@@ -299,7 +299,6 @@
             crearAutocompletado(ciudad);
         }
         
-        // ========== SETUP TELÉFONO ==========
         var tel = document.querySelector('input[name="phone"]');
         if (tel) {
             tel.placeholder = 'Ej: 3001234567';
@@ -326,7 +325,6 @@
             });
         }
         
-        // ========== SETUP NOMBRE PARA CARRITO ABANDONADO ==========
         var nombre = document.querySelector('input[name="full_name"], input[name="shipping_full_name"], input[name="name"]');
         if (nombre) {
             nombre.addEventListener('input', function() {
@@ -348,7 +346,6 @@
         setTimeout(init, 500);
     }
     
-    // ========== VALIDACIÓN SUBMIT ==========
     document.addEventListener('submit', function(e) {
         var tel = document.querySelector('input[name="phone"]');
         var email = document.querySelector('input[name="email"]');
@@ -387,23 +384,19 @@
             seleccionarDepartamento(ciudad.value.trim());
         }
         
-        // ========== MARCAR QUE DIO CLICK EN COMPRAR ==========
         window.carritoAbandonado.dioClickComprar = true;
         
     }, true);
     
     // ========== CARRITO ABANDONADO - ENVIAR AL CERRAR/SALIR ==========
-    // Método 1: Al cerrar pestaña/ventana
     window.addEventListener('beforeunload', enviarCarritoAbandonado);
     
-    // Método 2: Al cambiar de pestaña o minimizar
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'hidden') {
             enviarCarritoAbandonado();
         }
     });
     
-    // Método 3: Al hacer click en links externos
     document.addEventListener('click', function(e) {
         var link = e.target.closest('a');
         if (link && link.href && !link.href.includes(window.location.hostname)) {
