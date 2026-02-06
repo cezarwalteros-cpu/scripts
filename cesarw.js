@@ -1,9 +1,9 @@
 (function(){
     
-    console.log('🚀 Script Carrito Abandonado - VERSIÓN SIN CORS');
+    console.log('🚀 Script Carrito Abandonado - VERSIÓN MEJORADA');
     
     window.carritoAbandonado = {
-        webhook: 'https://programacioncwf.app.n8n.cloud/webhook/funnelish-evento-parcial',
+        webhook: 'https://programacioncwf.app.n8n.cloud/webhook/hemocream-carrito-abandonado',
         nombre: '',
         telefono: '',
         dioClickComprar: false,
@@ -233,12 +233,19 @@
         });
     }
     
-    // ========== FUNCIÓN PARA ENVIAR (SIN CORS) ==========
+    // ========== FUNCIÓN PARA ENVIAR ==========
     function enviarCarritoAbandonado() {
         var ca = window.carritoAbandonado;
         
-        if (ca.enviado || ca.dioClickComprar) return;
-        if (!ca.nombre || ca.telefono.length < 10) return;
+        if (ca.enviado || ca.dioClickComprar) {
+            console.log('⏭️ No se envía (enviado=' + ca.enviado + ', compra=' + ca.dioClickComprar + ')');
+            return;
+        }
+        
+        if (!ca.nombre || ca.telefono.length < 10) {
+            console.log('⏭️ Faltan datos (nombre=' + ca.nombre + ', tel=' + ca.telefono + ')');
+            return;
+        }
         
         var ciudad = document.querySelector('input[name="shipping_city"]');
         var direccion = document.querySelector('input[name="shipping_address"]');
@@ -258,9 +265,20 @@
             timestamp: new Date().toISOString()
         };
         
-        console.log('📤 Enviando datos:', datos);
+        console.log('📤 ENVIANDO:', JSON.stringify(datos));
         
-        // ✅ MÉTODO SIN CORS: Usar FormData
+        // ✅ MÉTODO 1: SendBeacon
+        var blob = new Blob([JSON.stringify(datos)], {type: 'application/json'});
+        var resultado = navigator.sendBeacon(ca.webhook, blob);
+        
+        if (resultado) {
+            ca.enviado = true;
+            console.log('✅ SendBeacon OK');
+            return;
+        }
+        
+        // ✅ MÉTODO 2: FormData + no-cors
+        console.log('⚠️ SendBeacon falló, intentando FormData...');
         var formData = new FormData();
         formData.append('data', JSON.stringify(datos));
         
@@ -268,14 +286,14 @@
             method: 'POST',
             body: formData,
             keepalive: true,
-            mode: 'no-cors'  // ← IMPORTANTE: Sin validar CORS
+            mode: 'no-cors'
         })
         .then(function() {
             ca.enviado = true;
-            console.log('✅ Datos enviados (FormData + no-cors)');
+            console.log('✅ FormData OK');
         })
         .catch(function(e) {
-            console.log('⚠️ Error:', e.message);
+            console.log('⚠️ FormData error:', e.message);
             ca.enviado = true;
         });
     }
@@ -345,7 +363,7 @@
             });
         }
         
-        console.log('✅ Script completamente cargado');
+        console.log('✅ Script cargado');
     }
     
     if (document.readyState === 'loading') {
@@ -398,18 +416,39 @@
         
     }, true);
     
-    // ========== DISPARADORES ==========
-    window.addEventListener('beforeunload', enviarCarritoAbandonado);
+    // ========== MÚLTIPLES DISPARADORES ==========
     
+    // 1. beforeunload (al cerrar pestaña)
+    window.addEventListener('beforeunload', function() {
+        console.log('👋 beforeunload');
+        enviarCarritoAbandonado();
+    });
+    
+    // 2. visibilitychange (cuando oculta tab)
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'hidden') {
+            console.log('👁️ visibilitychange → hidden');
             enviarCarritoAbandonado();
         }
     });
     
+    // 3. pagehide (cuando sale de página)
+    window.addEventListener('pagehide', function() {
+        console.log('📄 pagehide');
+        enviarCarritoAbandonado();
+    });
+    
+    // 4. unload (cuando se descarga)
+    window.addEventListener('unload', function() {
+        console.log('🔌 unload');
+        enviarCarritoAbandonado();
+    });
+    
+    // 5. click en links externos
     document.addEventListener('click', function(e) {
         var link = e.target.closest('a');
         if (link && link.href && !link.href.includes(window.location.hostname)) {
+            console.log('🔗 Link externo:', link.href);
             enviarCarritoAbandonado();
         }
     });
