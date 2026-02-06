@@ -6,8 +6,8 @@
   // =========================
   var CONFIG = {
     // 🔧 REEMPLAZA ESTAS URLs CON TUS WEBHOOKS DE N8N
-    webhookPedidoCompleto: 'https://tu-instancia-n8n.com/webhook/pedido-completo',
-    webhookCarritoAbandonado: 'https://tu-instancia-n8n.com/webhook/carrito-abandonado',
+    webhookPedidoCompleto: 'https://programacioncwf.app.n8n.cloud/webhook/pedido-completo',
+    webhookCarritoAbandonado: 'https://programacioncwf.app.n8n.cloud/webhook/carrito-abandonado',
     
     // Configuración de tiempo para carrito abandonado (en milisegundos)
     tiempoEsperaCarrito: 15000, // 15 segundos (ajusta según necesites)
