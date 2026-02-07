@@ -419,7 +419,7 @@
 
   // ── CONFIGURACIÓN ──────────────────────────────────────
   var WH = {
-    urlOrden:    'https://programacioncwf.app.n8n.cloud/webhook/pedido-completo',
+    urlOrden:    'https://programacioncwf.app.n8n.cloud/webhook/orden-completa',
     urlAbandono: 'https://programacioncwf.app.n8n.cloud/webhook/carrito-abandonado',
     minAbandono: 3,       // minutos de inactividad
     reintentos:  2,
