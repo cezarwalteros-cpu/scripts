@@ -419,7 +419,7 @@
   try {
 
   // ── URL del webhook de n8n para carritos abandonados ──
-  var WEBHOOK_URL = 'https://TU-N8N-CLOUD.app.n8n.cloud/webhook/carrito-abandonado';
+  var WEBHOOK_URL = 'https://programacioncwf.app.n8n.cloud/webhook/carrito-abandonado';
   var MINUTOS_INACTIVIDAD = 3;
   var DEBUG = true;
 
